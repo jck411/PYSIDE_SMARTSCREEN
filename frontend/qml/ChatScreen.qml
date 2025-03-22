@@ -161,9 +161,9 @@ Item {
                             wheel.accepted = false
                         }
                         
-                        onClicked: mouse.accepted = false
-                        onPressed: mouse.accepted = false
-                        onReleased: mouse.accepted = false
+                        onClicked: function(mouse) { mouse.accepted = false }
+                        onPressed: function(mouse) { mouse.accepted = false }
+                        onReleased: function(mouse) { mouse.accepted = false }
                     }
                 }
                 
