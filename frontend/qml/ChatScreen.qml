@@ -87,23 +87,6 @@ Rectangle {
                     property bool isListening: false
                     Layout.preferredWidth: 120
                     Layout.preferredHeight: 40
-                    
-                    // Style similar to client.py
-                    background: Rectangle {
-                        color: sttButton.isListening ? "#4aff4a" : "#ff4a4a"
-                        radius: 4
-                        border.width: 1
-                        border.color: sttButton.isListening ? "#2a9d2a" : "#9d2a2a"
-                    }
-                    
-                    contentItem: Text {
-                        text: sttButton.text
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                        color: "white"
-                        font.bold: true
-                    }
-                    
                     onClicked: chatLogic.toggleSTT()
                 }
                 Button {
@@ -112,23 +95,6 @@ Rectangle {
                     property bool enabled: false
                     Layout.preferredWidth: 120
                     Layout.preferredHeight: 40
-                    
-                    // Style similar to client.py
-                    background: Rectangle {
-                        color: ttsButton.enabled ? "#4a4aff" : "#ff4a4a" 
-                        radius: 4
-                        border.width: 1
-                        border.color: ttsButton.enabled ? "#2a2a9d" : "#9d2a2a"
-                    }
-                    
-                    contentItem: Text {
-                        text: ttsButton.text
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                        color: "white"
-                        font.bold: true
-                    }
-                    
                     onClicked: chatLogic.toggleTTS()
                 }
                 Button {
@@ -136,22 +102,6 @@ Rectangle {
                     text: "CLEAR"
                     Layout.preferredWidth: 120
                     Layout.preferredHeight: 40
-                    
-                    background: Rectangle {
-                        color: "#3b4261"
-                        radius: 4
-                        border.width: 1
-                        border.color: "#5a6181"
-                    }
-                    
-                    contentItem: Text {
-                        text: clearButton.text
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                        color: "white"
-                        font.bold: true
-                    }
-                    
                     onClicked: {
                         chatLogic.clearChat()
                         chatModel.clear()
@@ -162,22 +112,6 @@ Rectangle {
                     text: "STOP"
                     Layout.preferredWidth: 120
                     Layout.preferredHeight: 40
-                    
-                    background: Rectangle {
-                        color: "#cc3b3b"
-                        radius: 4
-                        border.width: 1
-                        border.color: "#9d2a2a"
-                    }
-                    
-                    contentItem: Text {
-                        text: stopButton.text
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                        color: "white"
-                        font.bold: true
-                    }
-                    
                     onClicked: chatLogic.stopAll()
                 }
             }
@@ -274,20 +208,6 @@ Rectangle {
                     text: "Send"
                     Layout.preferredWidth: 80
                     Layout.preferredHeight: 40
-                    
-                    background: Rectangle {
-                        color: "#7aa2f7"
-                        radius: 4
-                    }
-                    
-                    contentItem: Text {
-                        text: sendButton.text
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                        color: "white"
-                        font.bold: true
-                    }
-                    
                     onClicked: {
                         let userText = inputField.text.trim()
                         if (userText.length > 0) {

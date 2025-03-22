@@ -1,0 +1,32 @@
+2025-03-22 03:15:29,969 [INFO] frontend.config: Logging setup complete
+2025-03-22 03:15:29,969 [INFO] frontend.config: Starting application
+2025-03-22 03:15:30,030 [DEBUG] asyncio: Using selector: EpollSelector
+2025-03-22 03:15:30,491 [INFO] frontend.config: Number of root objects loaded: 1
+2025-03-22 03:15:30,491 [INFO] frontend.config: Main window size: 800x480
+2025-03-22 03:15:30,676 [INFO] frontend.config: [ChatLogic] Starting background tasks
+2025-03-22 03:15:30,687 [INFO] frontend.config: [ChatLogic] Attempting WS connection to ws://127.0.0.1:8000/ws/chat...
+2025-03-22 03:15:30,698 [INFO] frontend.config: [ChatLogic] Starting audio consumer loop.
+2025-03-22 03:15:30,707 [DEBUG] websockets.client: = connection is CONNECTING
+2025-03-22 03:15:30,726 [DEBUG] websockets.client: > GET /ws/chat HTTP/1.1
+2025-03-22 03:15:30,726 [DEBUG] websockets.client: > Host: 127.0.0.1:8000
+2025-03-22 03:15:30,726 [DEBUG] websockets.client: > Upgrade: websocket
+2025-03-22 03:15:30,727 [DEBUG] websockets.client: > Connection: Upgrade
+2025-03-22 03:15:30,727 [DEBUG] websockets.client: > Sec-WebSocket-Key: SXrslOafQY9yr18mR1p7ug==
+2025-03-22 03:15:30,727 [DEBUG] websockets.client: > Sec-WebSocket-Version: 13
+2025-03-22 03:15:30,727 [DEBUG] websockets.client: > Sec-WebSocket-Extensions: permessage-deflate; client_max_window_bits
+2025-03-22 03:15:30,727 [DEBUG] websockets.client: > User-Agent: Python/3.12 websockets/14.2
+2025-03-22 03:15:30,737 [DEBUG] websockets.client: < HTTP/1.1 101 Switching Protocols
+2025-03-22 03:15:30,737 [DEBUG] websockets.client: < Upgrade: websocket
+2025-03-22 03:15:30,737 [DEBUG] websockets.client: < Connection: Upgrade
+2025-03-22 03:15:30,737 [DEBUG] websockets.client: < Sec-WebSocket-Accept: iTwAwgFnCCmIK6SL2Ei2yZuw5ro=
+2025-03-22 03:15:30,737 [DEBUG] websockets.client: < Sec-WebSocket-Extensions: permessage-deflate
+2025-03-22 03:15:30,737 [DEBUG] websockets.client: < date: Sat, 22 Mar 2025 07:15:30 GMT
+2025-03-22 03:15:30,737 [DEBUG] websockets.client: < server: uvicorn
+2025-03-22 03:15:30,738 [DEBUG] websockets.client: = connection is OPEN
+2025-03-22 03:15:30,757 [INFO] frontend.config: [ChatLogic] WebSocket connected.
+2025-03-22 03:15:33,704 [INFO] frontend.config: [ChatLogic] Toggling STT => True
+2025-03-22 03:15:37,417 [INFO] frontend.config: [ChatLogic] TTS toggled => False
+2025-03-22 03:15:37,857 [INFO] frontend.config: [ChatLogic] TTS toggled => True
+2025-03-22 03:15:38,934 [INFO] frontend.config: [ChatLogic] Cleanup called. Stopping tasks.
+2025-03-22 03:15:39,038 [INFO] frontend.config: [ChatLogic] Cleanup complete.
+2025-03-22 03:15:39,038 [INFO] frontend.config: Application closed.
