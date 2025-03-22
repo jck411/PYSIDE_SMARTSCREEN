@@ -14,8 +14,28 @@ Rectangle {
         id: chatLogic
         
         onMessageReceived: function(text) {
-            // Simply append the text to the chat view as-is
+            // For complete messages
             chatModel.append({"text": text, "isUser": false})
+            // Auto-scroll to the bottom
+            chatView.positionViewAtEnd()
+        }
+        
+        onMessageChunkReceived: function(text, isFinal) {
+            // Check if we have an existing assistant message being streamed
+            var lastIndex = chatModel.count - 1
+            if (lastIndex >= 0 && !chatModel.get(lastIndex).isUser) {
+                // Update with accumulated text from Python side
+                chatModel.setProperty(lastIndex, "text", text)
+            } else {
+                // Create a new message
+                chatModel.append({"text": text, "isUser": false})
+            }
+            
+            // If this is the final message, we can do any cleanup or formatting needed
+            if (isFinal) {
+                console.log("Message stream complete")
+            }
+            
             // Auto-scroll to the bottom
             chatView.positionViewAtEnd()
         }

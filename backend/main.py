@@ -96,9 +96,20 @@ async def unified_chat_websocket(websocket: WebSocket):
                         if GEN_STOP_EVENT.is_set():
                             break
                         print(f"Sending content chunk: {content[:50]}...")
-                        await websocket.send_json({"content": content})
+                        await websocket.send_json({"content": content, "is_chunk": True})
                 finally:
                     print("Chat stream finished, cleaning up...")
+                    # Send a final signal to indicate streaming is complete
+                    try:
+                        if not GEN_STOP_EVENT.is_set():
+                            # Get the accumulated content from the last message
+                            # and mark it as complete
+                            last_message = next((m for m in validated[::-1] if m.get("role") == "assistant"), None)
+                            if last_message:
+                                await websocket.send_json({"content": last_message.get("content", ""), "is_final": True})
+                    except Exception as e:
+                        print(f"Error sending final message: {e}")
+                        
                     await phrase_queue.put(None)
                     await process_streams_task
                     await audio_forward_task

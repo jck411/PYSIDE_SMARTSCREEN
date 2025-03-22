@@ -85,6 +85,7 @@ class ChatLogic(QObject):
     audioReceived = Signal(bytes)           # Emitted when PCM audio is received
     connectionStatusChanged = Signal(bool)  # Emitted when WebSocket connects/disconnects
     ttsStateChanged = Signal(bool)          # Emitted when TTS state toggles
+    messageChunkReceived = Signal(str, bool)  # Emitted when a message chunk is received (text, is_final)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -93,6 +94,7 @@ class ChatLogic(QObject):
         self._messages = []
         self._sttEnabled = False
         self._ttsEnabled = False
+        self._current_response = ""  # Track the current response text
         
         # Get the event loop but don't start tasks immediately
         self._loop = asyncio.get_event_loop()
@@ -172,12 +174,34 @@ class ChatLogic(QObject):
                                 self._ttsEnabled = data.get("tts_enabled", self._ttsEnabled)
                                 self.ttsStateChanged.emit(self._ttsEnabled)
                             elif "content" in data:
-                                # Just emit the content directly to QML
+                                # Check if this is a chunk or a complete message
+                                is_chunk = data.get("is_chunk", False)
+                                is_final = data.get("is_final", False)
                                 content = data["content"]
-                                self.messageReceived.emit(content)
-                                # Add assistant message to history
-                                if content.strip():
-                                    self._messages.append({"sender": "assistant", "text": content})
+                                
+                                if is_chunk:
+                                    # Accumulate text for streaming
+                                    self._current_response += content
+                                    # Signal that this is a chunk (not final)
+                                    self.messageChunkReceived.emit(self._current_response, False)
+                                    # Don't add chunks to message history
+                                elif is_final:
+                                    # This is the final state of a streamed message
+                                    # We'll use the accumulated text for the final message
+                                    self.messageChunkReceived.emit(self._current_response, True)
+                                    # Add to message history since it's complete
+                                    if self._current_response.strip():
+                                        self._messages.append({"sender": "assistant", "text": self._current_response})
+                                    # Reset the accumulated text for the next message
+                                    self._current_response = ""
+                                else:
+                                    # Complete message or legacy mode
+                                    self.messageReceived.emit(content)
+                                    # Reset accumulated text for next streamed message
+                                    self._current_response = ""
+                                    # Add assistant message to history only for complete messages
+                                    if content.strip():
+                                        self._messages.append({"sender": "assistant", "text": content})
                             else:
                                 logger.info(f"[ChatLogic] Unknown data: {data}")
             except (ConnectionRefusedError, websockets.exceptions.InvalidURI) as e:
@@ -243,6 +267,8 @@ class ChatLogic(QObject):
         """
         logger.info(f"[ChatLogic] Sending message: {text}")
         self._messages.append({"sender": "user", "text": text})
+        # Reset current response when sending a new message
+        self._current_response = ""
         payload = {
             "action": "chat",
             "messages": self._messages
@@ -320,6 +346,7 @@ class ChatLogic(QObject):
         """
         logger.info("[ChatLogic] Clearing local chat history.")
         self._messages.clear()
+        self._current_response = ""  # Reset accumulated response
 
     def getConnected(self):
         return self._connected
