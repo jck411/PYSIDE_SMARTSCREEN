@@ -96,7 +96,7 @@ class ChatLogic(QObject):
         self._sttEnabled = False
         self._ttsEnabled = False
         self._current_response = ""  # Track the current response text
-        self.stt_listening = True
+        self.stt_listening = False
         self.is_toggling_stt = False
         self.is_toggling_tts = False
         self.tts_audio_playing = False
@@ -113,21 +113,7 @@ class ChatLogic(QObject):
         self.frontend_stt.state_changed.connect(self.handle_frontend_stt_state)
 
         # Audio playback setup
-        self.audioDevice = QueueAudioDevice()
-        self.audioDevice.open(QIODevice.ReadOnly)
-        audio_format = QAudioFormat()
-        audio_format.setSampleRate(24000)
-        audio_format.setChannelCount(1)
-        audio_format.setSampleFormat(QAudioFormat.SampleFormat.Int16)
-
-        self.audioOutputDevice = QMediaDevices.defaultAudioOutput()
-        if not self.audioOutputDevice:
-            logger.warning("[ChatLogic] No default audio output device found.")
-        self.audioSink = QAudioSink(self.audioOutputDevice, audio_format)
-        self.audioSink.setVolume(1.0)
-        self.audioSink.start(self.audioDevice)
-
-        self._audio_queue = asyncio.Queue()
+        self.setup_audio()
 
         # Start tasks in a safe way
         self._ws_task = None
@@ -141,10 +127,46 @@ class ChatLogic(QObject):
         timer.timeout.connect(self._startTasks)
         timer.start()
 
+    def setup_audio(self):
+        """Set up audio devices and sink, matching client.py implementation"""
+        self.audioDevice = QueueAudioDevice()
+        self.audioDevice.open(QIODevice.ReadOnly)
+        
+        audio_format = QAudioFormat()
+        audio_format.setSampleRate(24000)
+        audio_format.setChannelCount(1)
+        audio_format.setSampleFormat(QAudioFormat.SampleFormat.Int16)
+
+        device = QMediaDevices.defaultAudioOutput()
+        if device is None:
+            logger.error("[ChatLogic] No audio output device found!")
+        else:
+            logger.info("[ChatLogic] Default audio output device found.")
+
+        self.audioSink = QAudioSink(device, audio_format)
+        self.audioSink.setVolume(1.0)
+        self.audioSink.start(self.audioDevice)
+        logger.info("[ChatLogic] Audio sink started with audio device")
+        
+        self._audio_queue = asyncio.Queue()
+        
+        # Connect to audio state changes
+        self.audioSink.stateChanged.connect(self.handle_audio_state_changed)
+
     def _startTasks(self):
         logger.info("[ChatLogic] Starting background tasks")
         self._ws_task = self._loop.create_task(self._websocketLoop())
         self._audio_task = self._loop.create_task(self._audioConsumerLoop())
+
+    def handle_audio_state_changed(self, state):
+        """Handle audio state changes, matching client.py implementation"""
+        logger.info(f"[ChatLogic] Audio state changed to: {state}")
+        
+        def get_audio_state():
+            with QMutexLocker(self.audioDevice.mutex):
+                return len(self.audioDevice.audio_buffer), self.audioDevice.end_of_stream
+        buffer_size, is_end_of_stream = get_audio_state()
+        logger.info(f"[ChatLogic] Buffer size: {buffer_size}, End of stream: {is_end_of_stream}")
 
     async def _websocketLoop(self):
         """
@@ -162,62 +184,79 @@ class ChatLogic(QObject):
                     self._ws = ws  # Store reference for sending
 
                     while self._running:
-                        raw_msg = await ws.recv()
-                        if isinstance(raw_msg, bytes):
-                            # Check if the message is exactly the audio prefix (indicating end-of-stream)
-                            if raw_msg == b'audio:' or (raw_msg.startswith(b'audio:') and not raw_msg[len(b'audio:'):]):
-                                # Enqueue a None marker to signal end-of-stream
-                                await self._audio_queue.put(None)
-                            elif raw_msg.startswith(b'audio:'):
-                                pcm_data = raw_msg[len(b'audio:'):]
-                                # If after stripping the prefix the data is empty, treat it as end-of-stream
-                                if not pcm_data:
-                                    await self._audio_queue.put(None)
+                        try:
+                            raw_msg = await ws.recv()
+                            if isinstance(raw_msg, bytes):
+                                if raw_msg.startswith(b'audio:'):
+                                    audio_data = raw_msg[len(b'audio:'):]
+                                    logger.debug(f"[ChatLogic] Received audio chunk of size: {len(audio_data)} bytes")
+                                    self.audioReceived.emit(raw_msg)
+                                    
+                                    # If empty audio message (end of stream)
+                                    if raw_msg == b'audio:' or len(audio_data) == 0:
+                                        logger.info("[ChatLogic] Received empty audio message, marking end-of-stream")
+                                        await self._audio_queue.put(None)
+                                        if self.frontend_stt.is_enabled and self.tts_audio_playing:
+                                            await self.resume_stt_after_tts()
+                                        self.tts_audio_playing = False
+                                    else:
+                                        # Process audio data
+                                        await self._audio_queue.put(audio_data)
+                                        
+                                        # If first chunk, handle STT pause
+                                        if not self.tts_audio_playing:
+                                            self.tts_audio_playing = True
+                                            if self.frontend_stt.is_enabled:
+                                                logger.info("[ChatLogic] Pausing STT using KeepAlive mechanism due to TTS audio starting")
+                                                self.frontend_stt.set_paused(True)
                                 else:
-                                    await self._audio_queue.put(pcm_data)
+                                    logger.warning("[ChatLogic] Unknown binary message")
+                                    self.audioReceived.emit(b'audio:' + raw_msg)
                             else:
-                                logger.warning("[ChatLogic] Unknown binary message.")
-                        else:
-                            try:
-                                data = json.loads(raw_msg)
-                            except json.JSONDecodeError:
-                                logger.error(f"[ChatLogic] Non-JSON text: {raw_msg}")
-                                continue
+                                try:
+                                    data = json.loads(raw_msg)
+                                    logger.debug(f"[ChatLogic] Received message: {data}")
+                                    
+                                    msg_type = data.get("type")
+                                    if msg_type == "stt":
+                                        stt_text = data.get("stt_text", "")
+                                        logger.debug(f"[ChatLogic] Processing STT text immediately: {stt_text}")
+                                        self.sttTextReceived.emit(stt_text)
+                                    elif msg_type == "stt_state":
+                                        is_listening = data.get("is_listening", False)
+                                        logger.debug(f"[ChatLogic] Updating STT state: listening = {is_listening}")
+                                        self.sttStateChanged.emit(is_listening)
+                                    elif "content" in data:
+                                        # Check if this is a chunk or a complete message
+                                        is_chunk = data.get("is_chunk", False)
+                                        is_final = data.get("is_final", False)
+                                        content = data["content"]
 
-                            msg_type = data.get("type")
-                            if msg_type == "stt":
-                                stt_text = data.get("stt_text", "")
-                                self.sttTextReceived.emit(stt_text)
-                            elif msg_type == "stt_state":
-                                is_listening = data.get("is_listening", False)
-                                self.sttStateChanged.emit(is_listening)
-                            elif msg_type == "tts_state":
-                                self._ttsEnabled = data.get("tts_enabled", self._ttsEnabled)
-                                self.ttsStateChanged.emit(self._ttsEnabled)
-                            elif "content" in data:
-                                # Check if this is a chunk or a complete message
-                                is_chunk = data.get("is_chunk", False)
-                                is_final = data.get("is_final", False)
-                                content = data["content"]
-
-                                if is_chunk:
-                                    # Accumulate text for streaming
-                                    self._current_response += content
-                                    # Signal that this is a chunk (not final)
-                                    self.messageChunkReceived.emit(self._current_response, False)
-                                elif is_final:
-                                    # This is the final state of a streamed message
-                                    self.messageChunkReceived.emit(self._current_response, True)
-                                    if self._current_response.strip():
-                                        self._messages.append({"sender": "assistant", "text": self._current_response})
-                                    self._current_response = ""
-                                else:
-                                    self.messageReceived.emit(content)
-                                    self._current_response = ""
-                                    if content.strip():
-                                        self._messages.append({"sender": "assistant", "text": content})
-                            else:
-                                logger.info(f"[ChatLogic] Unknown data: {data}")
+                                        if is_chunk:
+                                            # Accumulate text for streaming
+                                            self._current_response += content
+                                            # Signal that this is a chunk (not final)
+                                            self.messageChunkReceived.emit(self._current_response, False)
+                                        elif is_final:
+                                            # This is the final state of a streamed message
+                                            self.messageChunkReceived.emit(self._current_response, True)
+                                            if self._current_response.strip():
+                                                self._messages.append({"sender": "assistant", "text": self._current_response})
+                                            self._current_response = ""
+                                        else:
+                                            self.messageReceived.emit(content)
+                                            self._current_response = ""
+                                            if content.strip():
+                                                self._messages.append({"sender": "assistant", "text": content})
+                                    else:
+                                        logger.warning(f"[ChatLogic] Unknown message type: {data}")
+                                except json.JSONDecodeError:
+                                    logger.error("[ChatLogic] Failed to parse JSON message")
+                                    logger.error(f"[ChatLogic] Raw message: {raw_msg}")
+                        except Exception as e:
+                            logger.error(f"[ChatLogic] WebSocket message processing error: {e}")
+                            await asyncio.sleep(0.1)
+                            continue
             except (ConnectionRefusedError, websockets.exceptions.InvalidURI) as e:
                 logger.error(f"[ChatLogic] WS connection failed: {e}")
                 self._connected = False
@@ -241,44 +280,50 @@ class ChatLogic(QObject):
     async def _audioConsumerLoop(self):
         """
         Continuously writes PCM audio data from the queue to the audio device.
-        Handles TTS audio playback and STT pausing/resuming.
+        Rewritten to match client.py implementation.
         """
         logger.info("[ChatLogic] Starting audio consumer loop.")
         while self._running:
             try:
-                pcm_data = await self._audio_queue.get()
-                if pcm_data is None:
+                pcm_chunk = await self._audio_queue.get()
+                if pcm_chunk is None:
                     logger.info("[ChatLogic] Received end-of-stream marker.")
-                    self.audioDevice.mark_end_of_stream()
-                    if self._ws and hasattr(self, "_ws"):
-                        try:
-                            await self._ws.send(json.dumps({"action": "playback-complete"}))
-                            logger.info("[ChatLogic] Sent playback-complete to server")
-                        except Exception as e:
-                            logger.error(f"[ChatLogic] Error sending playback-complete: {e}")
-                    if self.frontend_stt.is_enabled and self.tts_audio_playing:
-                        await self.resume_stt_after_tts()
-                    self.tts_audio_playing = False
+                    await asyncio.to_thread(self.audioDevice.mark_end_of_stream)
+                    
+                    # Wait until buffer is empty
+                    while True:
+                        buffer_len = await asyncio.to_thread(lambda: len(self.audioDevice.audio_buffer))
+                        if buffer_len == 0:
+                            logger.info("[ChatLogic] Audio buffer is empty, stopping sink.")
+                            self.audioSink.stop()
+                            break
+                        await asyncio.sleep(0.05)
+                    
+                    # Notify server that playback is complete
+                    if hasattr(self, "_ws") and self._ws:
+                        await self._ws.send(json.dumps({"action": "playback-complete"}))
+                        logger.info("[ChatLogic] Sent playback-complete to server")
+                    
+                    # Reset end-of-stream flag
+                    await asyncio.to_thread(self.audioDevice.reset_end_of_stream)
                     continue
 
-                # If this is the first audio chunk of a TTS response, pause STT
-                if not self.tts_audio_playing:
-                    self.tts_audio_playing = True
-                    if self.frontend_stt.is_enabled:
-                        logger.info("[ChatLogic] Pausing STT using KeepAlive mechanism due to TTS audio starting")
-                        self.frontend_stt.set_paused(True)
-
+                # Check if audio sink needs to be restarted
                 if self.audioSink.state() != QAudio.State.ActiveState:
-                    logger.debug("[ChatLogic] Restarting audio sink.")
+                    logger.debug("[ChatLogic] Restarting audio sink from non-active state.")
                     self.audioDevice.close()
                     self.audioDevice.open(QIODevice.ReadOnly)
                     self.audioSink.start(self.audioDevice)
 
-                self.audioDevice.writeData(pcm_data)
+                # Write data to device
+                bytes_written = await asyncio.to_thread(self.audioDevice.writeData, pcm_chunk)
+                logger.debug(f"[ChatLogic] Wrote {bytes_written} bytes to device.")
                 await asyncio.sleep(0)
+
             except Exception as e:
                 logger.error(f"[ChatLogic] Audio consumer error: {e}")
-                await asyncio.sleep(0.1)
+                await asyncio.sleep(0.05)
+        
         logger.info("[ChatLogic] Audio consumer loop exited.")
 
     async def resume_stt_after_tts(self):
@@ -344,6 +389,7 @@ class ChatLogic(QObject):
     def toggleSTT(self):
         """
         Toggles STT capture using the Deepgram STT implementation.
+        Implementing exact same logic as client.py
         """
         if self.is_toggling_stt:
             return
@@ -368,15 +414,16 @@ class ChatLogic(QObject):
         """
         Schedules toggling TTS on the server.
         """
+        if self.is_toggling_tts:
+            return
+        self.is_toggling_tts = True
         self._loop.create_task(self._toggleTTSAsync())
 
     async def _toggleTTSAsync(self):
         """
         The actual async implementation of toggling TTS.
+        Exactly matching client.py implementation.
         """
-        if not self._connected or not hasattr(self, "_ws"):
-            logger.warning("[ChatLogic] Not connected; cannot toggle TTS.")
-            return
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.post(f"{HTTP_BASE_URL}/api/toggle-tts") as resp:
@@ -386,6 +433,8 @@ class ChatLogic(QObject):
                     logger.info(f"[ChatLogic] TTS toggled => {self._ttsEnabled}")
         except Exception as e:
             logger.error(f"[ChatLogic] Error toggling TTS: {e}")
+        finally:
+            self.is_toggling_tts = False
 
     @Slot()
     def stopAll(self):
@@ -398,21 +447,39 @@ class ChatLogic(QObject):
     async def _stopAllAsync(self):
         """
         The actual async implementation of stopping all.
+        Updated to match client.py's implementation exactly.
         """
+        logger.info("[ChatLogic] Stop button pressed - stopping TTS and generation")
         try:
             async with aiohttp.ClientSession() as session:
-                await session.post(f"{HTTP_BASE_URL}/api/stop-audio")
-                await session.post(f"{HTTP_BASE_URL}/api/stop-generation")
-        except Exception as e:
-            logger.error(f"[ChatLogic] Error in stopAll: {e}")
+                async with session.post(f"{HTTP_BASE_URL}/api/stop-audio") as resp1:
+                    resp1_data = await resp1.json()
+                    logger.info(f"[ChatLogic] Stop TTS response: {resp1_data}")
 
+                async with session.post(f"{HTTP_BASE_URL}/api/stop-generation") as resp2:
+                    resp2_data = await resp2.json()
+                    logger.info(f"[ChatLogic] Stop generation response: {resp2_data}")
+        except Exception as e:
+            logger.error(f"[ChatLogic] Error stopping TTS and generation on server: {e}")
+
+        logger.info("[ChatLogic] Cleaning frontend audio resources")
+        current_state = self.audioSink.state()
+        logger.info(f"[ChatLogic] Audio sink state before stopping: {current_state}")
+        if current_state == QAudio.State.ActiveState:
+            logger.info("[ChatLogic] Audio sink is active; stopping it")
+            self.audioSink.stop()
+            logger.info("[ChatLogic] Audio sink stopped")
+        else:
+            logger.info(f"[ChatLogic] Audio sink not active; current state: {current_state}")
+
+        await asyncio.to_thread(self.audioDevice.clear_and_mark_end)
         while not self._audio_queue.empty():
             try:
                 self._audio_queue.get_nowait()
             except asyncio.QueueEmpty:
                 break
-        self.audioDevice.clear_buffer()
         self._audio_queue.put_nowait(None)
+        logger.info("[ChatLogic] End-of-stream marker placed in audio queue; audio resources cleaned up")
 
     @Slot()
     def clearChat(self):
@@ -431,6 +498,7 @@ class ChatLogic(QObject):
     def cleanup(self):
         """
         Call on shutdown to cancel tasks and clean up audio.
+        Updated to match client.py's implementation.
         """
         logger.info("[ChatLogic] Cleanup called. Stopping tasks.")
         self._running = False

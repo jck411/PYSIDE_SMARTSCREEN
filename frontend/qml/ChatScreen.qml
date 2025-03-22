@@ -23,17 +23,17 @@ Rectangle {
         }
         
         onMessageChunkReceived: function(text, isFinal) {
-            // Check if we have an existing assistant message being streamed
+            // Handle streaming response, exactly like client.py
             var lastIndex = chatModel.count - 1
             if (lastIndex >= 0 && !chatModel.get(lastIndex).isUser) {
-                // Update with accumulated text from Python side
+                // Update existing bubble with accumulated text
                 chatModel.setProperty(lastIndex, "text", text)
             } else {
-                // Create a new message
+                // Create a new message bubble
                 chatModel.append({"text": text, "isUser": false})
             }
             
-            // If this is the final message, we can do any cleanup or formatting needed
+            // If this is the final message in the stream, we're finished
             if (isFinal) {
                 console.log("Message stream complete")
             }
@@ -46,11 +46,13 @@ Rectangle {
         
         onConnectionStatusChanged: function(connected) {
             console.log("Connection changed => " + connected)
+            chatScreen.title = connected ? "Chat Interface - Connected" : "Chat Interface - Disconnected"
         }
         
         onSttStateChanged: function(enabled) {
             console.log("STT => " + enabled)
             sttButton.text = enabled ? "STT On" : "STT Off"
+            sttButton.isListening = enabled
         }
         
         onTtsStateChanged: function(enabled) {
@@ -62,6 +64,9 @@ Rectangle {
             inputField.text = text
         }
     }
+    
+    // For window title
+    property string title: "Chat Interface"
     
     // Wrap the layout inside a transparent Rectangle that defines margins.
     Rectangle {
@@ -78,8 +83,26 @@ Rectangle {
                 Button {
                     id: sttButton
                     text: "STT Off"
+                    property bool isListening: false
                     Layout.preferredWidth: 120
                     Layout.preferredHeight: 40
+                    
+                    // Style similar to client.py
+                    background: Rectangle {
+                        color: sttButton.isListening ? "#4aff4a" : "#ff4a4a"
+                        radius: 4
+                        border.width: 1
+                        border.color: sttButton.isListening ? "#2a9d2a" : "#9d2a2a"
+                    }
+                    
+                    contentItem: Text {
+                        text: sttButton.text
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                        color: "white"
+                        font.bold: true
+                    }
+                    
                     onClicked: chatLogic.toggleSTT()
                 }
                 Button {
@@ -87,21 +110,72 @@ Rectangle {
                     text: "TTS Off"
                     Layout.preferredWidth: 120
                     Layout.preferredHeight: 40
+                    
+                    // Style similar to client.py
+                    background: Rectangle {
+                        color: ttsButton.text === "TTS On" ? "#4a4aff" : "#ff4a4a" 
+                        radius: 4
+                        border.width: 1
+                        border.color: ttsButton.text === "TTS On" ? "#2a2a9d" : "#9d2a2a"
+                    }
+                    
+                    contentItem: Text {
+                        text: ttsButton.text
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                        color: "white"
+                        font.bold: true
+                    }
+                    
                     onClicked: chatLogic.toggleTTS()
                 }
                 Button {
+                    id: clearButton
                     text: "CLEAR"
                     Layout.preferredWidth: 120
                     Layout.preferredHeight: 40
+                    
+                    background: Rectangle {
+                        color: "#3b4261"
+                        radius: 4
+                        border.width: 1
+                        border.color: "#5a6181"
+                    }
+                    
+                    contentItem: Text {
+                        text: clearButton.text
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                        color: "white"
+                        font.bold: true
+                    }
+                    
                     onClicked: {
                         chatLogic.clearChat()
                         chatModel.clear()
                     }
                 }
                 Button {
+                    id: stopButton
                     text: "STOP"
                     Layout.preferredWidth: 120
                     Layout.preferredHeight: 40
+                    
+                    background: Rectangle {
+                        color: "#cc3b3b"
+                        radius: 4
+                        border.width: 1
+                        border.color: "#9d2a2a"
+                    }
+                    
+                    contentItem: Text {
+                        text: stopButton.text
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                        color: "white"
+                        font.bold: true
+                    }
+                    
                     onClicked: chatLogic.stopAll()
                 }
             }
@@ -112,31 +186,34 @@ Rectangle {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
                 clip: true
+                spacing: 8
                 
                 model: ListModel {
                     id: chatModel
                 }
                 
                 delegate: Rectangle {
-                    width: ListView.view ? ListView.view.width : 0
-                    color: model.isUser ? "#3b4261" : "transparent"
+                    width: ListView.view ? ListView.view.width - 16 : 0
+                    color: model.isUser ? "#3b4261" : "#24283b"
                     radius: 8
                     height: contentLabel.paintedHeight + 16
+                    
+                    // Position messages on opposite sides like in a standard chat app
+                    anchors.right: model.isUser ? parent.right : undefined
+                    anchors.left: model.isUser ? undefined : parent.left
+                    anchors.rightMargin: model.isUser ? 8 : 0
+                    anchors.leftMargin: model.isUser ? 0 : 8
                     
                     Text {
                         id: contentLabel
                         text: model.text
                         wrapMode: Text.Wrap
+                        width: parent.width - 16
                         color: "#a9b1d6"
                         anchors.margins: 8
-                        anchors.fill: parent
+                        anchors.centerIn: parent
                     }
                 }
-                
-                // Remove the automatic scrolling on content height change
-                // onContentHeightChanged: {
-                //     chatView.positionViewAtEnd()
-                // }
                 
                 // Add property to control auto-scrolling
                 property bool autoScroll: true
@@ -156,6 +233,11 @@ Rectangle {
                         // Don't consume the wheel event, let it pass to the ListView
                         wheel.accepted = false;
                     }
+                    
+                    // Handle click to allow message selection but not block the ListView
+                    onClicked: mouse.accepted = false
+                    onPressed: mouse.accepted = false
+                    onReleased: mouse.accepted = false
                 }
             }
             
@@ -166,8 +248,20 @@ Rectangle {
                     placeholderText: "Type your message..."
                     Layout.fillWidth: true
                     
+                    // Style similar to client.py
+                    background: Rectangle {
+                        color: "#24283b"
+                        radius: 4
+                        border.width: 1
+                        border.color: "#5a6181"
+                    }
+                    
+                    color: "#a9b1d6"
+                    selectByMouse: true
+                    
                     Keys.onPressed: function(event) {
-                        if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
+                        if ((event.key === Qt.Key_Return || event.key === Qt.Key_Enter) && 
+                            !(event.modifiers & Qt.ShiftModifier)) {
                             sendButton.clicked()
                             event.accepted = true
                         }
@@ -177,6 +271,21 @@ Rectangle {
                     id: sendButton
                     text: "Send"
                     Layout.preferredWidth: 80
+                    Layout.preferredHeight: 40
+                    
+                    background: Rectangle {
+                        color: "#7aa2f7"
+                        radius: 4
+                    }
+                    
+                    contentItem: Text {
+                        text: sendButton.text
+                        horizontalAlignment: Text.AlignHCenter
+                        verticalAlignment: Text.AlignVCenter
+                        color: "white"
+                        font.bold: true
+                    }
+                    
                     onClicked: {
                         let userText = inputField.text.trim()
                         if (userText.length > 0) {
@@ -190,6 +299,15 @@ Rectangle {
                     }
                 }
             }
+        }
+    }
+    
+    // When user clicks anywhere in the chat, try to focus the input field
+    MouseArea {
+        anchors.fill: parent
+        z: -1 // Behind everything else
+        onClicked: {
+            inputField.forceActiveFocus()
         }
     }
 }
