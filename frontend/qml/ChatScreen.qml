@@ -57,6 +57,10 @@ Rectangle {
             console.log("TTS => " + enabled)
             ttsButton.text = enabled ? "TTS On" : "TTS Off"
         }
+        
+        onSttInputTextReceived: function(text) {
+            inputField.text = text
+        }
     }
     
     // Wrap the layout inside a transparent Rectangle that defines margins.

@@ -11,7 +11,8 @@ from PySide6.QtCore import (
 from PySide6.QtMultimedia import QAudioFormat, QAudioSink, QMediaDevices, QAudio
 
 from frontend.config import SERVER_HOST, SERVER_PORT, WEBSOCKET_PATH, HTTP_BASE_URL, logger
-
+# Import your frontend STT implementation
+from frontend.stt.deepgram_stt import DeepgramSTT
 
 class QueueAudioDevice(QIODevice):
     """
@@ -68,7 +69,6 @@ class QueueAudioDevice(QIODevice):
         with QMutexLocker(self.mutex):
             self.end_of_stream = False
 
-
 class ChatLogic(QObject):
     """
     Comprehensive chat logic with:
@@ -86,6 +86,7 @@ class ChatLogic(QObject):
     connectionStatusChanged = Signal(bool)  # Emitted when WebSocket connects/disconnects
     ttsStateChanged = Signal(bool)          # Emitted when TTS state toggles
     messageChunkReceived = Signal(str, bool)  # Emitted when a message chunk is received (text, is_final)
+    sttInputTextReceived = Signal(str)      # Emitted when complete STT utterance should be set as input text
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -95,9 +96,21 @@ class ChatLogic(QObject):
         self._sttEnabled = False
         self._ttsEnabled = False
         self._current_response = ""  # Track the current response text
-        
+        self.stt_listening = True
+        self.is_toggling_stt = False
+        self.is_toggling_tts = False
+        self.tts_audio_playing = False
+
         # Get the event loop but don't start tasks immediately
         self._loop = asyncio.get_event_loop()
+
+        # Initialize Deepgram STT
+        self.frontend_stt = DeepgramSTT()
+
+        # Connect to STT signals
+        self.frontend_stt.transcription_received.connect(self.handle_interim_stt_text)
+        self.frontend_stt.complete_utterance_received.connect(self.handle_frontend_stt_text)
+        self.frontend_stt.state_changed.connect(self.handle_frontend_stt_state)
 
         # Audio playback setup
         self.audioDevice = QueueAudioDevice()
@@ -151,9 +164,17 @@ class ChatLogic(QObject):
                     while self._running:
                         raw_msg = await ws.recv()
                         if isinstance(raw_msg, bytes):
-                            if raw_msg.startswith(b'audio:'):
+                            # Check if the message is exactly the audio prefix (indicating end-of-stream)
+                            if raw_msg == b'audio:' or (raw_msg.startswith(b'audio:') and not raw_msg[len(b'audio:'):]):
+                                # Enqueue a None marker to signal end-of-stream
+                                await self._audio_queue.put(None)
+                            elif raw_msg.startswith(b'audio:'):
                                 pcm_data = raw_msg[len(b'audio:'):]
-                                await self._audio_queue.put(pcm_data)
+                                # If after stripping the prefix the data is empty, treat it as end-of-stream
+                                if not pcm_data:
+                                    await self._audio_queue.put(None)
+                                else:
+                                    await self._audio_queue.put(pcm_data)
                             else:
                                 logger.warning("[ChatLogic] Unknown binary message.")
                         else:
@@ -178,28 +199,21 @@ class ChatLogic(QObject):
                                 is_chunk = data.get("is_chunk", False)
                                 is_final = data.get("is_final", False)
                                 content = data["content"]
-                                
+
                                 if is_chunk:
                                     # Accumulate text for streaming
                                     self._current_response += content
                                     # Signal that this is a chunk (not final)
                                     self.messageChunkReceived.emit(self._current_response, False)
-                                    # Don't add chunks to message history
                                 elif is_final:
                                     # This is the final state of a streamed message
-                                    # We'll use the accumulated text for the final message
                                     self.messageChunkReceived.emit(self._current_response, True)
-                                    # Add to message history since it's complete
                                     if self._current_response.strip():
                                         self._messages.append({"sender": "assistant", "text": self._current_response})
-                                    # Reset the accumulated text for the next message
                                     self._current_response = ""
                                 else:
-                                    # Complete message or legacy mode
                                     self.messageReceived.emit(content)
-                                    # Reset accumulated text for next streamed message
                                     self._current_response = ""
-                                    # Add assistant message to history only for complete messages
                                     if content.strip():
                                         self._messages.append({"sender": "assistant", "text": content})
                             else:
@@ -227,14 +241,32 @@ class ChatLogic(QObject):
     async def _audioConsumerLoop(self):
         """
         Continuously writes PCM audio data from the queue to the audio device.
+        Handles TTS audio playback and STT pausing/resuming.
         """
         logger.info("[ChatLogic] Starting audio consumer loop.")
         while self._running:
             try:
                 pcm_data = await self._audio_queue.get()
                 if pcm_data is None:
+                    logger.info("[ChatLogic] Received end-of-stream marker.")
                     self.audioDevice.mark_end_of_stream()
+                    if self._ws and hasattr(self, "_ws"):
+                        try:
+                            await self._ws.send(json.dumps({"action": "playback-complete"}))
+                            logger.info("[ChatLogic] Sent playback-complete to server")
+                        except Exception as e:
+                            logger.error(f"[ChatLogic] Error sending playback-complete: {e}")
+                    if self.frontend_stt.is_enabled and self.tts_audio_playing:
+                        await self.resume_stt_after_tts()
+                    self.tts_audio_playing = False
                     continue
+
+                # If this is the first audio chunk of a TTS response, pause STT
+                if not self.tts_audio_playing:
+                    self.tts_audio_playing = True
+                    if self.frontend_stt.is_enabled:
+                        logger.info("[ChatLogic] Pausing STT using KeepAlive mechanism due to TTS audio starting")
+                        self.frontend_stt.set_paused(True)
 
                 if self.audioSink.state() != QAudio.State.ActiveState:
                     logger.debug("[ChatLogic] Restarting audio sink.")
@@ -249,6 +281,17 @@ class ChatLogic(QObject):
                 await asyncio.sleep(0.1)
         logger.info("[ChatLogic] Audio consumer loop exited.")
 
+    async def resume_stt_after_tts(self):
+        """
+        Wait for TTS audio to finish playing before resuming STT.
+        """
+        logger.info("[ChatLogic] Waiting for TTS audio to finish playing to resume STT...")
+        while self.audioSink.state() != QAudio.State.StoppedState:
+            await asyncio.sleep(0.1)
+        if self.frontend_stt.is_enabled:
+            logger.info("[ChatLogic] Resuming STT after TTS finished playing")
+            self.frontend_stt.set_paused(False)
+
     @Slot(str)
     def sendMessage(self, text):
         """
@@ -257,8 +300,6 @@ class ChatLogic(QObject):
         text = text.strip()
         if not text or not self._connected or not hasattr(self, "_ws"):
             return
-
-        # Schedule the async operation instead of calling directly
         self._loop.create_task(self._sendMessageAsync(text))
 
     async def _sendMessageAsync(self, text):
@@ -267,7 +308,6 @@ class ChatLogic(QObject):
         """
         logger.info(f"[ChatLogic] Sending message: {text}")
         self._messages.append({"sender": "user", "text": text})
-        # Reset current response when sending a new message
         self._current_response = ""
         payload = {
             "action": "chat",
@@ -278,21 +318,56 @@ class ChatLogic(QObject):
         except Exception as e:
             logger.error(f"[ChatLogic] Error sending message: {e}")
 
+    def handle_interim_stt_text(self, text):
+        if text.strip():
+            logger.debug(f"[ChatLogic] Interim STT text: {text}")
+            self.sttTextReceived.emit(text)
+
+    def handle_frontend_stt_text(self, text):
+        if text.strip():
+            logger.info(f"[ChatLogic] Complete utterance: {text}")
+            self.sttTextReceived.emit(text)
+            self.sttInputTextReceived.emit(text)
+
+    def handle_frontend_stt_state(self, is_listening):
+        try:
+            self.stt_listening = is_listening
+            self._sttEnabled = is_listening
+            self.sttStateChanged.emit(is_listening)
+            logger.info(f"[ChatLogic] STT state changed: {is_listening}")
+        except asyncio.exceptions.CancelledError:
+            logger.warning("[ChatLogic] STT state update task was cancelled - expected during shutdown")
+        except Exception as e:
+            logger.error(f"[ChatLogic] Error updating STT state: {e}")
+
     @Slot()
     def toggleSTT(self):
         """
-        Toggles STT capture. (Integrate your STT engine here if needed.)
+        Toggles STT capture using the Deepgram STT implementation.
         """
-        self._sttEnabled = not self._sttEnabled
-        logger.info(f"[ChatLogic] Toggling STT => {self._sttEnabled}")
-        self.sttStateChanged.emit(self._sttEnabled)
+        if self.is_toggling_stt:
+            return
+        self.is_toggling_stt = True
+        try:
+            if hasattr(self.frontend_stt, 'toggle'):
+                self.frontend_stt.toggle()
+                self.handle_frontend_stt_state(not self.stt_listening)
+            else:
+                logger.error("[ChatLogic] Frontend STT implementation missing toggle method")
+                self.handle_frontend_stt_state(not self.stt_listening)
+        except asyncio.exceptions.CancelledError:
+            logger.warning("[ChatLogic] STT toggle task was cancelled - expected during shutdown")
+        except Exception as e:
+            logger.error(f"[ChatLogic] Error toggling STT: {e}")
+            self.handle_frontend_stt_state(not self.stt_listening)
+        finally:
+            self.is_toggling_stt = False
 
     @Slot()
     def toggleTTS(self):
         """
         Schedules toggling TTS on the server.
         """
-        # Schedule the async operation
         self._loop.create_task(self._toggleTTSAsync())
 
     async def _toggleTTSAsync(self):
@@ -346,7 +421,7 @@ class ChatLogic(QObject):
         """
         logger.info("[ChatLogic] Clearing local chat history.")
         self._messages.clear()
-        self._current_response = ""  # Reset accumulated response
+        self._current_response = ""
 
     def getConnected(self):
         return self._connected
@@ -359,6 +434,10 @@ class ChatLogic(QObject):
         """
         logger.info("[ChatLogic] Cleanup called. Stopping tasks.")
         self._running = False
+
+        if hasattr(self, 'frontend_stt') and self.frontend_stt:
+            self.frontend_stt.stop()
+            logger.info("[ChatLogic] Stopped Deepgram STT")
 
         if hasattr(self, "_ws_task") and self._ws_task and not self._ws_task.done():
             self._ws_task.cancel()
