@@ -121,6 +121,7 @@ Item {
                     Layout.fillHeight: true
                     clip: true
                     spacing: 8
+                    property bool autoScroll: true
                     
                     model: ListModel {
                         id: chatModel
@@ -148,10 +149,10 @@ Item {
                         }
                     }
                     
-                    property bool autoScroll: true
-                    
                     MouseArea {
                         anchors.fill: parent
+                        propagateComposedEvents: true
+                        
                         onWheel: function(wheel) {
                             if (wheel.angleDelta.y < 0 && chatView.atYEnd) {
                                 chatView.autoScroll = true
@@ -160,10 +161,6 @@ Item {
                             }
                             wheel.accepted = false
                         }
-                        
-                        onClicked: function(mouse) { mouse.accepted = false }
-                        onPressed: function(mouse) { mouse.accepted = false }
-                        onReleased: function(mouse) { mouse.accepted = false }
                     }
                 }
                 

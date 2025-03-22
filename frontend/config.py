@@ -10,11 +10,11 @@ def setup_logger(name=__name__, level=logging.INFO):
     logger = logging.getLogger(name)
     logger.setLevel(level)
 
-    ch = logging.StreamHandler()
-    formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s")
-    ch.setFormatter(formatter)
-
-    if not logger.handlers:
+    # Prevent duplicate logs by checking if root logger already has handlers
+    if not logging.getLogger().handlers and not logger.handlers:
+        ch = logging.StreamHandler()
+        formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+        ch.setFormatter(formatter)
         logger.addHandler(ch)
 
     return logger

@@ -39,7 +39,7 @@ CONFIG: Dict[str, Any] = {
         },
     },
     "GENERAL_AUDIO": {
-        "TTS_ENABLED": False,  # Set to False by default
+        "TTS_ENABLED": True,  # Set to False by default
         "WAKEWORD_ENABLED": False,  # Enable/disable wake word detection
     },
     "PROCESSING_PIPELINE": {
