@@ -8,18 +8,18 @@ import os
 import aiohttp
 import websockets
 
-# PyQt6 Imports
-from PyQt6.QtWidgets import (
+# PySide6 Imports
+from PySide6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
     QPushButton, QScrollArea, QSizePolicy, QTextEdit, QFrame, QLabel
 )
-from PyQt6.QtCore import (
-    Qt, QTimer, QSize, QIODevice, pyqtSignal, QObject, QMutex, QMutexLocker
+from PySide6.QtCore import (
+    Qt, QTimer, QSize, QIODevice, Signal, QObject, QMutex, QMutexLocker
 )
-from PyQt6.QtGui import (
+from PySide6.QtGui import (
     QColor, QPalette, QIcon
 )
-from PyQt6.QtMultimedia import (
+from PySide6.QtMultimedia import (
     QAudioFormat, QAudioSink, QMediaDevices, QAudio
 )
 
@@ -33,16 +33,13 @@ import asyncio.exceptions
 
 # Import configuration
 from frontend.config import SERVER_HOST, SERVER_PORT, WEBSOCKET_PATH, HTTP_BASE_URL, logger
-
-# -----------------------------------------------------------------------------
-#                        2. IMPORT STYLING & THEMING
-# -----------------------------------------------------------------------------
-
+#-----------------------------------------------------------------------------
+# 2. IMPORT STYLING & THEMING
+#-----------------------------------------------------------------------------
 from frontend.style import DARK_COLORS, LIGHT_COLORS, generate_main_stylesheet, get_message_bubble_stylesheet
-
-# -----------------------------------------------------------------------------
-#                         3. COMPONENTS & HELPER WIDGETS
-# -----------------------------------------------------------------------------
+#-----------------------------------------------------------------------------
+# 3. COMPONENTS & HELPER WIDGETS
+#-----------------------------------------------------------------------------
 
 class MessageBubble(QFrame):
     def __init__(self, text, is_user=True):
@@ -59,29 +56,30 @@ class MessageBubble(QFrame):
     def update_text(self, new_text):
         self.label.setText(new_text)
 
+
 class CustomTextEdit(QTextEdit):
-    def __init__(self, parent=None):
-        super().__init__(parent)
+    def init(self, parent=None):
+        super().init(parent)
 
     def keyPressEvent(self, event):
-        if event.key() == Qt.Key.Key_Return and not (event.modifiers() & Qt.KeyboardModifier.ShiftModifier):
+        if event.key() == Qt.Key_Return and not (event.modifiers() & Qt.ShiftModifier):
             main_window = self.window()
             if hasattr(main_window, "send_message"):
                 main_window.send_message()
         else:
             super().keyPressEvent(event)
 
-# -----------------------------------------------------------------------------
-#                         4. ASYNC WEBSOCKET CLIENT
-# -----------------------------------------------------------------------------
+#-----------------------------------------------------------------------------
+# 4. ASYNC WEBSOCKET CLIENT
+#-----------------------------------------------------------------------------
 
 class AsyncWebSocketClient(QObject):
-    message_received = pyqtSignal(str)
-    stt_text_received = pyqtSignal(str)
-    stt_state_received = pyqtSignal(bool)
-    connection_status = pyqtSignal(bool)
-    audio_received = pyqtSignal(bytes)
-    tts_state_changed = pyqtSignal(bool)
+    message_received = Signal(str)
+    stt_text_received = Signal(str)
+    stt_state_received = Signal(bool)
+    connection_status = Signal(bool)
+    audio_received = Signal(bytes)
+    tts_state_changed = Signal(bool)
 
     def __init__(self, server_host, server_port, websocket_path):
         super().__init__()
@@ -92,7 +90,7 @@ class AsyncWebSocketClient(QObject):
         self.running = True
         self.messages = []
 
-    async def connect(self):
+    async def start_connection(self):
         ws_url = f"ws://{self.server_host}:{self.server_port}{self.websocket_path}"
         try:
             self.ws = await websockets.connect(ws_url)
@@ -114,7 +112,7 @@ class AsyncWebSocketClient(QObject):
                         try:
                             data = json.loads(message)
                             logger.debug(f"Received message: {data}")
-                            
+
                             msg_type = data.get("type")
                             if msg_type == "stt":
                                 stt_text = data.get("stt_text", "")
@@ -151,9 +149,9 @@ class AsyncWebSocketClient(QObject):
     def handle_assistant_message(self, message):
         self.messages.append({"sender": "assistant", "text": message})
 
-# -----------------------------------------------------------------------------
-#                             5. AUDIO SETUP
-# -----------------------------------------------------------------------------
+#-----------------------------------------------------------------------------
+# 5. AUDIO SETUP
+#-----------------------------------------------------------------------------
 
 class QueueAudioDevice(QIODevice):
     def __init__(self):
@@ -242,24 +240,23 @@ def setup_audio():
     logger.info(f"Audio sink created with initial state: {audio_sink.state()}")
 
     audio_device = QueueAudioDevice()
-    audio_device.open(QIODevice.OpenModeFlag.ReadOnly)
+    audio_device.open(QIODevice.ReadOnly)
     audio_sink.start(audio_device)
     logger.info("Audio sink started with audio device")
     return audio_sink, audio_device
 
-# -----------------------------------------------------------------------------
-#                          6. MAIN CHAT WINDOW CLASS
-# -----------------------------------------------------------------------------
+#-----------------------------------------------------------------------------
+# 6. MAIN CHAT WINDOW CLASS
+#-----------------------------------------------------------------------------
 
 class ChatWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-        
+
         self.setWindowTitle("Modern Chat Interface")
         self.setMinimumSize(800, 600)
         self.is_dark_mode = True
-        
-        self.colors = DARK_COLORS
+        self.colors = DARK_COLORS  # Initialize colors before using it
 
         self.assistant_text_in_progress = ""
         self.assistant_bubble_in_progress = None
@@ -267,8 +264,6 @@ class ChatWindow(QMainWindow):
         self.stt_enabled = True
         self.is_toggling_stt = False
         self.is_toggling_tts = False
-
-        # Track whether TTS audio is currently playing.
         self.tts_audio_playing = False
 
         main_widget = QWidget()
@@ -286,11 +281,10 @@ class ChatWindow(QMainWindow):
         self.setup_websocket()
         self.setup_audio()
 
-        self.apply_styling()
-        
-        # Connect to the transcription_received signal for interim updates (optional)
+        self.apply_styling()  # Now colors is initialized before this call
+
+        # Connect to STT signals
         self.frontend_stt.transcription_received.connect(self.handle_interim_stt_text)
-        # Connect to the complete_utterance_received signal for final updates
         self.frontend_stt.complete_utterance_received.connect(self.handle_frontend_stt_text)
         self.frontend_stt.state_changed.connect(self.handle_frontend_stt_state)
 
@@ -323,12 +317,12 @@ class ChatWindow(QMainWindow):
         top_layout = QHBoxLayout(self.top_widget)
         top_layout.setContentsMargins(0, 5, 0, 0)
         top_layout.setSpacing(5)
-        
+
         left_buttons = QWidget()
         left_layout = QHBoxLayout(left_buttons)
         left_layout.setContentsMargins(0, 0, 0, 0)
         left_layout.setSpacing(5)
-        
+
         self.toggle_stt_button = QPushButton("STT Off")
         self.toggle_stt_button.setFixedSize(120, 40)
         self.toggle_stt_button.setObjectName("sttButton")
@@ -371,26 +365,26 @@ class ChatWindow(QMainWindow):
     def setup_chat_area_layout(self):
         self.chat_area = QWidget()
         self.chat_area.setAutoFillBackground(True)
-        self.chat_area.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self.chat_area.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         chat_palette = self.chat_area.palette()
-        chat_palette.setColor(QPalette.ColorRole.Window, QColor(self.colors['background']))
+        chat_palette.setColor(QPalette.Window, QColor(self.colors['background']))
         self.chat_area.setPalette(chat_palette)
-        
+
         self.chat_layout = QVBoxLayout(self.chat_area)
         self.chat_layout.setContentsMargins(0, 0, 0, 0)
         self.chat_layout.setSpacing(2)
         self.chat_layout.addStretch()
 
         scroll = QScrollArea()
-        scroll.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        scroll.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         scroll.setWidget(self.chat_area)
         scroll.setWidgetResizable(True)
-        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        scroll.setVerticalScrollBarPolicy(Qt.ScrollBarAsNeeded)
         scroll.setContentsMargins(0, 0, 0, 0)
         scroll.setAutoFillBackground(True)
         scroll_palette = scroll.palette()
-        scroll_palette.setColor(QPalette.ColorRole.Window, QColor(self.colors['background']))
+        scroll_palette.setColor(QPalette.Window, QColor(self.colors['background']))
         scroll.setPalette(scroll_palette)
 
         self.main_layout.addWidget(scroll, stretch=1)
@@ -438,11 +432,11 @@ class ChatWindow(QMainWindow):
         self.ws_client.connection_status.connect(self.handle_connection_status)
         self.ws_client.audio_received.connect(self.on_audio_received)
         self.ws_client.tts_state_changed.connect(self.handle_tts_state_changed)
-        
+
         if hasattr(self, 'async_tasks'):
-            self.async_tasks.append(asyncio.create_task(self.ws_client.connect()))
+            self.async_tasks.append(asyncio.create_task(self.ws_client.start_connection()))
         else:
-            QTimer.singleShot(0, lambda: asyncio.create_task(self.ws_client.connect()))
+            QTimer.singleShot(0, lambda: asyncio.create_task(self.ws_client.start_connection()))
 
     def setup_audio(self):
         self.audio_sink, self.audio_device = setup_audio()
@@ -455,11 +449,11 @@ class ChatWindow(QMainWindow):
         self.chat_area.setStyleSheet(f"background-color: {self.colors['background']};")
         scroll_area = self.findChild(QScrollArea)
         scroll_area.setStyleSheet(f"background-color: {self.colors['background']};")
-        
+
         palette = self.text_input.palette()
-        palette.setColor(QPalette.ColorRole.PlaceholderText, QColor(self.colors['text_secondary']))
+        palette.setColor(QPalette.PlaceholderText, QColor(self.colors['text_secondary']))
         self.text_input.setPalette(palette)
-        
+
         for i in range(self.chat_layout.count()):
             widget = self.chat_layout.itemAt(i).widget()
             if widget and widget.__class__.__name__ == "MessageBubble":
@@ -525,6 +519,7 @@ class ChatWindow(QMainWindow):
 
     def handle_audio_state_changed(self, state):
         logger.info(f"[handle_audio_state_changed] Audio state changed to: {state}")
+
         def get_audio_state():
             with QMutexLocker(self.audio_device.mutex):
                 return len(self.audio_device.audio_buffer), self.audio_device.end_of_stream
@@ -555,34 +550,30 @@ class ChatWindow(QMainWindow):
                 if self.audio_sink.state() != QAudio.State.ActiveState:
                     logger.debug("[audio_consumer] Restarting audio sink from non-active state.")
                     self.audio_device.close()
-                    self.audio_device.open(QIODevice.OpenModeFlag.ReadOnly)
+                    self.audio_device.open(QIODevice.ReadOnly)
                     self.audio_sink.start(self.audio_device)
 
                 bytes_written = await asyncio.to_thread(self.audio_device.writeData, pcm_chunk)
                 logger.debug(f"[audio_consumer] Wrote {bytes_written} bytes to device.")
                 await asyncio.sleep(0)
-            
+
             except Exception as e:
                 logger.error(f"[audio_consumer] Error: {e}")
                 await asyncio.sleep(0.05)
 
     def on_audio_received(self, pcm_data: bytes):
         logger.info(f"Received audio chunk of size: {len(pcm_data)} bytes")
-        # When TTS audio is playing (non-empty audio data), pause STT using the Deepgram keep-alive approach.
         if pcm_data == b'audio:' or len(pcm_data) == 0:
             logger.info("Received empty audio message, marking end-of-stream")
             self.audio_queue.put_nowait(None)
             self.audio_device.mark_end_of_stream()
-            # Resume STT only after TTS audio has finished playing
             if self.frontend_stt.is_enabled and self.tts_audio_playing:
                 asyncio.create_task(self.resume_stt_after_tts())
             self.tts_audio_playing = False
         else:
-            # If this is the first audio chunk of TTS playback, pause STT.
             if not self.tts_audio_playing:
                 self.tts_audio_playing = True
                 if self.frontend_stt.is_enabled:
-                    # Use the set_paused method which now implements KeepAlive correctly
                     logger.info("Pausing STT using KeepAlive mechanism due to TTS audio starting")
                     self.frontend_stt.set_paused(True)
             prefix = b'audio:'
@@ -592,11 +583,9 @@ class ChatWindow(QMainWindow):
 
     async def resume_stt_after_tts(self):
         logger.info("Waiting for TTS audio to finish playing to resume STT...")
-        # Wait until the audio sink is stopped (i.e. TTS audio finished playing).
         while self.audio_sink.state() != QAudio.State.StoppedState:
             await asyncio.sleep(0.1)
         if self.frontend_stt.is_enabled:
-            # Resume STT using the set_paused method which now implements KeepAlive correctly
             logger.info("Resuming STT after TTS finished playing")
             self.frontend_stt.set_paused(False)
 
@@ -607,12 +596,11 @@ class ChatWindow(QMainWindow):
     async def toggle_tts_async(self):
         self.is_toggling_tts = True
         try:
-            # Toggle the TTS state on the server
             async with aiohttp.ClientSession() as session:
                 async with session.post(f"{HTTP_BASE_URL}/api/toggle-tts") as resp:
                     data = await resp.json()
                     self.tts_enabled = data.get("tts_enabled", not self.tts_enabled)
-            
+
             self.toggle_tts_button.setText("TTS On" if self.tts_enabled else "TTS Off")
 
         except Exception as e:
@@ -685,14 +673,10 @@ class ChatWindow(QMainWindow):
         super().closeEvent(event)
 
     def handle_interim_stt_text(self, text):
-        # This method handles interim transcriptions
-        # You can optionally use this for visual feedback without updating the text input
         if text.strip():
             print(f"Interim STT text: {text}")
-            # Optionally, you could show this somewhere else in the UI
 
     def handle_frontend_stt_text(self, text):
-        # This method now only handles complete utterances
         if text.strip():
             print(f"Complete utterance: {text}")
             self.text_input.setPlainText(text)
@@ -709,7 +693,7 @@ class ChatWindow(QMainWindow):
                 style.polish(self.toggle_stt_button)
             self.toggle_stt_button.update()
         except asyncio.exceptions.CancelledError:
-            logger.warning("STT state update task was cancelled - this is expected during shutdown")
+            logger.warning("STT state update task was cancelled - expected during shutdown")
         except Exception as e:
             logger.error(f"Error updating STT state in UI: {e}")
 
@@ -725,16 +709,16 @@ class ChatWindow(QMainWindow):
                 logger.error("Frontend STT implementation missing toggle method")
                 self.handle_frontend_stt_state(not self.stt_listening)
         except asyncio.exceptions.CancelledError:
-            logger.warning("STT toggle task was cancelled - this is expected during shutdown")
+            logger.warning("STT toggle task was cancelled - expected during shutdown")
         except Exception as e:
             logger.error(f"Error toggling STT: {e}")
             self.handle_frontend_stt_state(not self.stt_listening)
         finally:
             self.is_toggling_stt = False
 
-# -----------------------------------------------------------------------------
-#                                   7. MAIN
-# -----------------------------------------------------------------------------
+#-----------------------------------------------------------------------------
+# 7. MAIN
+#-----------------------------------------------------------------------------
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
