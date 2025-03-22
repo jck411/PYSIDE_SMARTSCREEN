@@ -10,7 +10,7 @@ Item {
     
     Rectangle {
         anchors.fill: parent
-        color: "#15161e"
+        color: "#1a1b26"
 
         ChatLogic {
             id: chatLogic

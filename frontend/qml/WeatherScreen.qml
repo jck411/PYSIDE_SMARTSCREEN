@@ -6,11 +6,11 @@ Item {
     
     Rectangle {
         anchors.fill: parent
-        color: "#2b2b2b"
+        color: "#1a1b26"
 
         Text {
             text: "Weather Screen Placeholder"
-            color: "white"
+            color: "#a9b1d6"
             anchors.centerIn: parent
         }
     }

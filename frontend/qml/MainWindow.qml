@@ -8,9 +8,9 @@ Window {
     id: mainWindow
     width: 800
     height: 480
-    color: "#333333"
+    color: "#1a1b26"
     visible: true
-    title: "Smart Screen"
+    title: ""
     
     ColumnLayout {
         anchors.fill: parent
@@ -19,7 +19,7 @@ Window {
         Rectangle {
             id: topBar
             height: 50
-            color: "#444444"
+            color: "#1a1b26"
             Layout.fillWidth: true
             
             RowLayout {
@@ -27,8 +27,8 @@ Window {
                 spacing: 10
                 
                 Text {
-                    text: "Smart Screen"
-                    color: "white"
+                    text: ""
+                    color: "#a9b1d6"
                     verticalAlignment: Text.AlignVCenter
                     font.bold: true
                     Layout.margins: 10
