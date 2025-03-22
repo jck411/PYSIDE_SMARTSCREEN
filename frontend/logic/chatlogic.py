@@ -23,12 +23,17 @@ class QueueAudioDevice(QIODevice):
         self.audio_buffer = bytearray()
         self.mutex = QMutex()
         self.end_of_stream = False
+        self.is_active = False
 
     def open(self, mode):
         success = super().open(mode)
+        if success:
+            self.is_active = True
+            self.end_of_stream = False
         return success
 
     def close(self):
+        self.is_active = False
         super().close()
 
     def seek(self, pos):
@@ -38,6 +43,7 @@ class QueueAudioDevice(QIODevice):
         with QMutexLocker(self.mutex):
             if not self.audio_buffer:
                 if self.end_of_stream:
+                    logger.debug("[QueueAudioDevice] End of stream reached with empty buffer")
                     return bytes()
                 return bytes(maxSize)
             data = bytes(self.audio_buffer[:maxSize])
@@ -58,16 +64,19 @@ class QueueAudioDevice(QIODevice):
 
     def mark_end_of_stream(self):
         with QMutexLocker(self.mutex):
+            logger.info(f"[QueueAudioDevice] Marking end of stream, buffer size: {len(self.audio_buffer)}")
             self.end_of_stream = True
 
     def clear_buffer(self):
         with QMutexLocker(self.mutex):
+            logger.info(f"[QueueAudioDevice] Clearing buffer, previous size: {len(self.audio_buffer)}")
             self.audio_buffer.clear()
-            self.end_of_stream = False
 
     def reset_end_of_stream(self):
         with QMutexLocker(self.mutex):
+            prev_state = self.end_of_stream
             self.end_of_stream = False
+            logger.info(f"[QueueAudioDevice] Reset end-of-stream flag from {prev_state} to {self.end_of_stream}")
 
 class ChatLogic(QObject):
     """
@@ -126,6 +135,13 @@ class ChatLogic(QObject):
         timer.setInterval(100)  # 100ms delay
         timer.timeout.connect(self._startTasks)
         timer.start()
+        
+        # Also query TTS state at startup after a short delay
+        tts_timer = QTimer(self)
+        tts_timer.setSingleShot(True)
+        tts_timer.setInterval(1000)  # 1 second delay to allow connection to establish
+        tts_timer.timeout.connect(lambda: self._loop.create_task(self._queryTTSState()))
+        tts_timer.start()
 
     def setup_audio(self):
         """Set up audio devices and sink, matching client.py implementation"""
@@ -450,6 +466,11 @@ class ChatLogic(QObject):
         Updated to match client.py's implementation exactly.
         """
         logger.info("[ChatLogic] Stop button pressed - stopping TTS and generation")
+        
+        # Save current TTS state before stopping
+        current_tts_state = self._ttsEnabled
+        logger.info(f"[ChatLogic] Current TTS state before stopping: {current_tts_state}")
+        
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.post(f"{HTTP_BASE_URL}/api/stop-audio") as resp1:
@@ -459,8 +480,30 @@ class ChatLogic(QObject):
                 async with session.post(f"{HTTP_BASE_URL}/api/stop-generation") as resp2:
                     resp2_data = await resp2.json()
                     logger.info(f"[ChatLogic] Stop generation response: {resp2_data}")
+
+                # Restore TTS state if needed
+                if current_tts_state:
+                    logger.info("[ChatLogic] Restoring TTS state to enabled")
+                    await asyncio.sleep(0.5)  # Small delay to avoid race condition
+                    async with session.post(f"{HTTP_BASE_URL}/api/toggle-tts") as resp3:
+                        data = await resp3.json()
+                        restored_state = data.get("tts_enabled", False)
+                        logger.info(f"[ChatLogic] TTS state after restore attempt: {restored_state}")
+                        if restored_state != current_tts_state:
+                            # Try once more if state doesn't match expected
+                            await asyncio.sleep(0.5)
+                            async with session.post(f"{HTTP_BASE_URL}/api/toggle-tts") as resp4:
+                                final_data = await resp4.json()
+                                self._ttsEnabled = final_data.get("tts_enabled", current_tts_state)
+                                self.ttsStateChanged.emit(self._ttsEnabled)
+                        else:
+                            self._ttsEnabled = restored_state
+                            self.ttsStateChanged.emit(self._ttsEnabled)
         except Exception as e:
             logger.error(f"[ChatLogic] Error stopping TTS and generation on server: {e}")
+            # Still try to preserve TTS state
+            self._ttsEnabled = current_tts_state
+            self.ttsStateChanged.emit(self._ttsEnabled)
 
         logger.info("[ChatLogic] Cleaning frontend audio resources")
         current_state = self.audioSink.state()
@@ -472,7 +515,10 @@ class ChatLogic(QObject):
         else:
             logger.info(f"[ChatLogic] Audio sink not active; current state: {current_state}")
 
-        await asyncio.to_thread(self.audioDevice.clear_and_mark_end)
+        # Use the correct methods from QueueAudioDevice
+        await asyncio.to_thread(self.audioDevice.clear_buffer)
+        await asyncio.to_thread(self.audioDevice.mark_end_of_stream)
+        
         while not self._audio_queue.empty():
             try:
                 self._audio_queue.get_nowait()
@@ -518,3 +564,53 @@ class ChatLogic(QObject):
 
         self.audioDevice.close()
         logger.info("[ChatLogic] Cleanup complete.")
+
+    async def _queryTTSState(self):
+        """Query the current TTS state from the server"""
+        logger.info("[ChatLogic] Querying initial TTS state from server")
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(f"{HTTP_BASE_URL}/api/tts-state") as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        self._ttsEnabled = data.get("tts_enabled", False)
+                        logger.info(f"[ChatLogic] Initial TTS state from server: {self._ttsEnabled}")
+                        self.ttsStateChanged.emit(self._ttsEnabled)
+                    else:
+                        logger.warning(f"[ChatLogic] Failed to get TTS state: {resp.status}")
+        except Exception as e:
+            logger.error(f"[ChatLogic] Error querying TTS state: {e}")
+            # Fallback - try toggling twice if we couldn't get the state
+            await asyncio.sleep(2)
+            if self._connected and hasattr(self, "_ws"):
+                await self._toggleTTSTwice()
+
+    async def _toggleTTSTwice(self):
+        """Toggle TTS twice to get back to original state while ensuring we get the server state"""
+        logger.info("[ChatLogic] Trying fallback TTS state detection by toggling twice")
+        try:
+            # First toggle
+            async with aiohttp.ClientSession() as session:
+                async with session.post(f"{HTTP_BASE_URL}/api/toggle-tts") as resp1:
+                    if resp1.status == 200:
+                        data1 = await resp1.json()
+                        first_state = data1.get("tts_enabled", False)
+                        logger.info(f"[ChatLogic] First TTS toggle state: {first_state}")
+                        await asyncio.sleep(0.5)
+                        
+                        # Second toggle to restore original state
+                        async with session.post(f"{HTTP_BASE_URL}/api/toggle-tts") as resp2:
+                            if resp2.status == 200:
+                                data2 = await resp2.json()
+                                self._ttsEnabled = data2.get("tts_enabled", False)
+                                logger.info(f"[ChatLogic] Restored TTS state: {self._ttsEnabled}")
+                                self.ttsStateChanged.emit(self._ttsEnabled)
+                            else:
+                                logger.warning(f"[ChatLogic] Second toggle failed: {resp2.status}")
+                    else:
+                        logger.warning(f"[ChatLogic] First toggle failed: {resp1.status}")
+        except Exception as e:
+            logger.error(f"[ChatLogic] Error in TTS toggle-twice fallback: {e}")
+            # Default state if all else fails
+            self._ttsEnabled = False
+            self.ttsStateChanged.emit(self._ttsEnabled)

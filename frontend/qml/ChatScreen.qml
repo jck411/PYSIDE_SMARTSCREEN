@@ -6,7 +6,7 @@ import MyScreens 1.0
 
 Rectangle {
     id: chatScreen
-    color: "#1a1b26"
+    color: "#15161e"  // Slightly darker for better contrast
     anchors.fill: parent
     
     // ChatLogic is instantiated here from Python.
@@ -58,6 +58,7 @@ Rectangle {
         onTtsStateChanged: function(enabled) {
             console.log("TTS => " + enabled)
             ttsButton.text = enabled ? "TTS On" : "TTS Off"
+            ttsButton.enabled = enabled
         }
         
         onSttInputTextReceived: function(text) {
@@ -108,15 +109,16 @@ Rectangle {
                 Button {
                     id: ttsButton
                     text: "TTS Off"
+                    property bool enabled: false
                     Layout.preferredWidth: 120
                     Layout.preferredHeight: 40
                     
                     // Style similar to client.py
                     background: Rectangle {
-                        color: ttsButton.text === "TTS On" ? "#4a4aff" : "#ff4a4a" 
+                        color: ttsButton.enabled ? "#4a4aff" : "#ff4a4a" 
                         radius: 4
                         border.width: 1
-                        border.color: ttsButton.text === "TTS On" ? "#2a2a9d" : "#9d2a2a"
+                        border.color: ttsButton.enabled ? "#2a2a9d" : "#9d2a2a"
                     }
                     
                     contentItem: Text {
