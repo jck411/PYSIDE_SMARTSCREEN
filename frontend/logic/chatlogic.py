@@ -578,39 +578,13 @@ class ChatLogic(QObject):
                         self.ttsStateChanged.emit(self._ttsEnabled)
                     else:
                         logger.warning(f"[ChatLogic] Failed to get TTS state: {resp.status}")
+                        # Just set to False instead of doing fallback
+                        self._ttsEnabled = False
+                        self.ttsStateChanged.emit(self._ttsEnabled)
         except Exception as e:
             logger.error(f"[ChatLogic] Error querying TTS state: {e}")
-            # Fallback - try toggling twice if we couldn't get the state
-            await asyncio.sleep(2)
-            if self._connected and hasattr(self, "_ws"):
-                await self._toggleTTSTwice()
-
-    async def _toggleTTSTwice(self):
-        """Toggle TTS twice to get back to original state while ensuring we get the server state"""
-        logger.info("[ChatLogic] Trying fallback TTS state detection by toggling twice")
-        try:
-            # First toggle
-            async with aiohttp.ClientSession() as session:
-                async with session.post(f"{HTTP_BASE_URL}/api/toggle-tts") as resp1:
-                    if resp1.status == 200:
-                        data1 = await resp1.json()
-                        first_state = data1.get("tts_enabled", False)
-                        logger.info(f"[ChatLogic] First TTS toggle state: {first_state}")
-                        await asyncio.sleep(0.5)
-                        
-                        # Second toggle to restore original state
-                        async with session.post(f"{HTTP_BASE_URL}/api/toggle-tts") as resp2:
-                            if resp2.status == 200:
-                                data2 = await resp2.json()
-                                self._ttsEnabled = data2.get("tts_enabled", False)
-                                logger.info(f"[ChatLogic] Restored TTS state: {self._ttsEnabled}")
-                                self.ttsStateChanged.emit(self._ttsEnabled)
-                            else:
-                                logger.warning(f"[ChatLogic] Second toggle failed: {resp2.status}")
-                    else:
-                        logger.warning(f"[ChatLogic] First toggle failed: {resp1.status}")
-        except Exception as e:
-            logger.error(f"[ChatLogic] Error in TTS toggle-twice fallback: {e}")
-            # Default state if all else fails
+            # Set default state instead of toggling twice
             self._ttsEnabled = False
             self.ttsStateChanged.emit(self._ttsEnabled)
+
+    # Remove the _toggleTTSTwice method that was causing issues

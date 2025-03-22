@@ -4,8 +4,8 @@ Speech-to-Text (STT) configuration settings
 from typing import Dict, Any
 
 STT_CONFIG: Dict[str, Any] = {
-    'enabled': True,  # Global switch to enable/disable STT
-    'auto_start': True,  # Whether to start STT automatically on initialization
+    'enabled': False,  # Global switch to enable/disable STT
+    'auto_start': False,  # Whether to start STT automatically on initialization
     'use_keepalive': True,  # Whether to use KeepAlive for pausing/resuming during TTS
 }
 

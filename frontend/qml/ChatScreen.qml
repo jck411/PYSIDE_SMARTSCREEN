@@ -58,7 +58,7 @@ Rectangle {
         onTtsStateChanged: function(enabled) {
             console.log("TTS => " + enabled)
             ttsButton.text = enabled ? "TTS On" : "TTS Off"
-            ttsButton.enabled = enabled
+            ttsButton.isEnabled = enabled  // Changed from enabled to isEnabled to match property name
         }
         
         onSttInputTextReceived: function(text) {
@@ -87,15 +87,25 @@ Rectangle {
                     property bool isListening: false
                     Layout.preferredWidth: 120
                     Layout.preferredHeight: 40
-                    onClicked: chatLogic.toggleSTT()
+                    onClicked: {
+                        // Update the button state immediately before backend responds
+                        isListening = !isListening
+                        text = isListening ? "STT On" : "STT Off"
+                        chatLogic.toggleSTT()
+                    }
                 }
                 Button {
                     id: ttsButton
                     text: "TTS Off"
-                    property bool enabled: false
+                    property bool isEnabled: false  // Changed from enabled to isEnabled
                     Layout.preferredWidth: 120
                     Layout.preferredHeight: 40
-                    onClicked: chatLogic.toggleTTS()
+                    onClicked: {
+                        // Update the button state immediately before backend responds
+                        isEnabled = !isEnabled
+                        text = isEnabled ? "TTS On" : "TTS Off"
+                        chatLogic.toggleTTS()
+                    }
                 }
                 Button {
                     id: clearButton

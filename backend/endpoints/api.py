@@ -10,6 +10,14 @@ router = APIRouter(prefix="/api")
 async def openai_options():
     return Response(status_code=200)
 
+@router.get("/tts-state")
+async def get_tts_state():
+    """Return the current TTS state from config"""
+    try:
+        return {"tts_enabled": CONFIG["GENERAL_AUDIO"]["TTS_ENABLED"]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get TTS state: {str(e)}")
+
 @router.post("/toggle-tts")
 async def toggle_tts():
     try:
