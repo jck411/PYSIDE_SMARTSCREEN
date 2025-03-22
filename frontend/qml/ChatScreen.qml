@@ -16,8 +16,10 @@ Rectangle {
         onMessageReceived: function(text) {
             // For complete messages
             chatModel.append({"text": text, "isUser": false})
-            // Auto-scroll to the bottom
-            chatView.positionViewAtEnd()
+            // Auto-scroll to the bottom only if autoScroll is true
+            if (chatView.autoScroll) {
+                chatView.positionViewAtEnd()
+            }
         }
         
         onMessageChunkReceived: function(text, isFinal) {
@@ -36,8 +38,10 @@ Rectangle {
                 console.log("Message stream complete")
             }
             
-            // Auto-scroll to the bottom
-            chatView.positionViewAtEnd()
+            // Auto-scroll to the bottom only if autoScroll is true
+            if (chatView.autoScroll) {
+                chatView.positionViewAtEnd()
+            }
         }
         
         onConnectionStatusChanged: function(connected) {
@@ -125,9 +129,29 @@ Rectangle {
                     }
                 }
                 
-                // Auto-scroll behavior
-                onContentHeightChanged: {
-                    chatView.positionViewAtEnd()
+                // Remove the automatic scrolling on content height change
+                // onContentHeightChanged: {
+                //     chatView.positionViewAtEnd()
+                // }
+                
+                // Add property to control auto-scrolling
+                property bool autoScroll: true
+                
+                // Add mouse wheel handler to detect user scrolling
+                MouseArea {
+                    anchors.fill: parent
+                    onWheel: function(wheel) {
+                        // When user scrolls manually, disable auto-scroll
+                        if (wheel.angleDelta.y < 0 && chatView.atYEnd) {
+                            // Scrolling down at bottom - keep auto-scroll
+                            chatView.autoScroll = true;
+                        } else if (wheel.angleDelta.y > 0) {
+                            // Scrolling up - disable auto-scroll
+                            chatView.autoScroll = false;
+                        }
+                        // Don't consume the wheel event, let it pass to the ListView
+                        wheel.accepted = false;
+                    }
                 }
             }
             
@@ -155,6 +179,8 @@ Rectangle {
                             chatModel.append({ "text": userText, "isUser": true })
                             inputField.text = ""
                             chatLogic.sendMessage(userText)
+                            // When sending a message, always re-enable auto-scroll
+                            chatView.autoScroll = true
                             chatView.positionViewAtEnd()
                         }
                     }
