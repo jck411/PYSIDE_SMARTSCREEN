@@ -4,6 +4,9 @@ import QtQuick.Controls 2.15
 Item {
     id: calendarScreen
     
+    // Property to tell MainWindow which controls to load
+    property string screenControls: "CalendarControls.qml"
+    
     Rectangle {
         anchors.fill: parent
         color: "#1a1b26"

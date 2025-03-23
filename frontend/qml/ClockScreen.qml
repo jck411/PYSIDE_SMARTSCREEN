@@ -5,6 +5,9 @@ import QtQuick.Layouts 1.15
 Item {
     id: clockScreen
     
+    // Property to tell MainWindow which controls to load
+    property string screenControls: "ClockControls.qml"
+    
     Rectangle {
         anchors.fill: parent
         color: "#1a1b26"

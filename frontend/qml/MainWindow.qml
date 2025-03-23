@@ -12,10 +12,14 @@ Window {
     visible: true
     title: ""
     
+    // Property to track current screen
+    property var currentScreen: null
+    
     ColumnLayout {
         anchors.fill: parent
         spacing: 0
         
+        // Simplified top bar with single RowLayout
         Rectangle {
             id: topBar
             height: 50
@@ -24,51 +28,53 @@ Window {
             
             RowLayout {
                 anchors.fill: parent
+                anchors.leftMargin: 10
+                anchors.rightMargin: 10
                 spacing: 10
                 
-                Text {
-                    text: ""
-                    color: "#a9b1d6"
-                    verticalAlignment: Text.AlignVCenter
-                    font.bold: true
-                    Layout.margins: 10
+                // Screen-specific controls
+                Loader {
+                    id: screenControlsLoader
+                    Layout.fillHeight: true
+                    Layout.preferredWidth: 500
                 }
                 
-                Rectangle { color: "transparent"; Layout.fillWidth: true }
+                Item { Layout.fillWidth: true } // Spacer
                 
+                // Navigation buttons
                 Button {
                     text: "Chat"
                     onClicked: stackView.replace("ChatScreen.qml")
-                    Layout.preferredWidth: 120
-                    Layout.preferredHeight: 40
+                    Layout.preferredWidth: 100
+                    Layout.preferredHeight: 36
                 }
                 
                 Button {
                     text: "Weather"
                     onClicked: stackView.replace("WeatherScreen.qml")
-                    Layout.preferredWidth: 120
-                    Layout.preferredHeight: 40
+                    Layout.preferredWidth: 100
+                    Layout.preferredHeight: 36
                 }
                 
                 Button {
                     text: "Calendar"
                     onClicked: stackView.replace("CalendarScreen.qml")
-                    Layout.preferredWidth: 120
-                    Layout.preferredHeight: 40
+                    Layout.preferredWidth: 100
+                    Layout.preferredHeight: 36
                 }
                 
                 Button {
                     text: "Clock"
                     onClicked: stackView.replace("ClockScreen.qml")
-                    Layout.preferredWidth: 120
-                    Layout.preferredHeight: 40
+                    Layout.preferredWidth: 100
+                    Layout.preferredHeight: 36
                 }
                 
                 Button {
                     text: "Photos"
                     onClicked: stackView.replace("PhotoScreen.qml")
-                    Layout.preferredWidth: 120
-                    Layout.preferredHeight: 40
+                    Layout.preferredWidth: 100
+                    Layout.preferredHeight: 36
                 }
             }
         }
@@ -77,9 +83,17 @@ Window {
             id: stackView
             Layout.fillWidth: true
             Layout.fillHeight: true
-            // Since MainWindow.qml and ChatScreen.qml are in the same folder,
-            // we use just the file name.
             initialItem: "ChatScreen.qml"
+            
+            onCurrentItemChanged: {
+                // Clear and reload screen controls
+                if (currentItem && currentItem.screenControls) {
+                    screenControlsLoader.sourceComponent = undefined
+                    screenControlsLoader.source = currentItem.screenControls
+                    screenControlsLoader.item.screen = currentItem
+                }
+                currentScreen = currentItem
+            }
         }
     }
 }

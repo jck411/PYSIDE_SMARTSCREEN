@@ -8,6 +8,13 @@ Item {
     id: chatScreen
     property string title: "Chat Interface"
     
+    // Properties to expose chat logic and model to controls
+    property alias chatLogic: chatLogic
+    property alias chatModel: chatModel
+    
+    // Property to tell MainWindow which controls to load
+    property string screenControls: "ChatControls.qml"
+    
     Rectangle {
         anchors.fill: parent
         color: "#1a1b26"
@@ -44,18 +51,6 @@ Item {
                 chatScreen.title = connected ? "Chat Interface - Connected" : "Chat Interface - Disconnected"
             }
             
-            onSttStateChanged: function(enabled) {
-                console.log("STT => " + enabled)
-                sttButton.text = enabled ? "STT On" : "STT Off"
-                sttButton.isListening = enabled
-            }
-            
-            onTtsStateChanged: function(enabled) {
-                console.log("TTS => " + enabled)
-                ttsButton.text = enabled ? "TTS On" : "TTS Off"
-                ttsButton.isEnabled = enabled
-            }
-            
             onSttInputTextReceived: function(text) {
                 inputField.text = text
             }
@@ -69,51 +64,6 @@ Item {
             ColumnLayout {
                 anchors.fill: parent
                 spacing: 8
-                
-                RowLayout {
-                    spacing: 8
-                    Button {
-                        id: sttButton
-                        text: "STT Off"
-                        property bool isListening: false
-                        Layout.preferredWidth: 120
-                        Layout.preferredHeight: 40
-                        onClicked: {
-                            isListening = !isListening
-                            text = isListening ? "STT On" : "STT Off"
-                            chatLogic.toggleSTT()
-                        }
-                    }
-                    Button {
-                        id: ttsButton
-                        text: "TTS Off"
-                        property bool isEnabled: false
-                        Layout.preferredWidth: 120
-                        Layout.preferredHeight: 40
-                        onClicked: {
-                            isEnabled = !isEnabled
-                            text = isEnabled ? "TTS On" : "TTS Off"
-                            chatLogic.toggleTTS()
-                        }
-                    }
-                    Button {
-                        id: clearButton
-                        text: "CLEAR"
-                        Layout.preferredWidth: 120
-                        Layout.preferredHeight: 40
-                        onClicked: {
-                            chatLogic.clearChat()
-                            chatModel.clear()
-                        }
-                    }
-                    Button {
-                        id: stopButton
-                        text: "STOP"
-                        Layout.preferredWidth: 120
-                        Layout.preferredHeight: 40
-                        onClicked: chatLogic.stopAll()
-                    }
-                }
                 
                 ListView {
                     id: chatView
