@@ -37,6 +37,13 @@ Window {
                     id: screenControlsLoader
                     Layout.fillHeight: true
                     Layout.preferredWidth: 500
+                    
+                    // Handle component loading status
+                    onStatusChanged: {
+                        if (status === Loader.Ready && item) {
+                            item.screen = stackView.currentItem
+                        }
+                    }
                 }
                 
                 Item { Layout.fillWidth: true } // Spacer
@@ -86,13 +93,15 @@ Window {
             initialItem: "ChatScreen.qml"
             
             onCurrentItemChanged: {
-                // Clear and reload screen controls
-                if (currentItem && currentItem.screenControls) {
-                    screenControlsLoader.sourceComponent = undefined
-                    screenControlsLoader.source = currentItem.screenControls
-                    screenControlsLoader.item.screen = currentItem
-                }
                 currentScreen = currentItem
+                
+                // Only load controls after current item is fully loaded
+                if (currentItem && currentItem.screenControls) {
+                    // First clear the old component
+                    screenControlsLoader.source = ""
+                    // Then load the new one
+                    screenControlsLoader.source = currentItem.screenControls
+                }
             }
         }
     }
