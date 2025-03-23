@@ -139,11 +139,15 @@ Item {
                             }
                         }
                     }
+                    
                     Button {
                         id: sendButton
-                        text: "Send"
-                        Layout.preferredWidth: 80
+                        Layout.preferredWidth: 40
                         Layout.preferredHeight: 40
+                        background: Rectangle {
+                            color: "transparent"
+                            radius: 5
+                        }
                         onClicked: {
                             let userText = inputField.text.trim()
                             if (userText.length > 0) {
@@ -154,6 +158,18 @@ Item {
                                 chatView.positionViewAtEnd()
                             }
                         }
+                        
+                        Image {
+                            anchors.centerIn: parent
+                            source: "../icons/send.svg"
+                            width: 24
+                            height: 24
+                            sourceSize.width: 24
+                            sourceSize.height: 24
+                        }
+                        
+                        ToolTip.visible: hovered
+                        ToolTip.text: "Send"
                     }
                 }
             }

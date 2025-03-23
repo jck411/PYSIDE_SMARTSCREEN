@@ -48,40 +48,115 @@ Window {
                 
                 Item { Layout.fillWidth: true } // Spacer
                 
-                // Navigation buttons
+                // Navigation icons
                 Button {
-                    text: "Chat"
+                    id: chatButton
+                    Layout.preferredWidth: 50
+                    Layout.preferredHeight: 40
+                    background: Rectangle {
+                        color: "transparent"
+                        border.color: stackView.currentItem.toString().includes("ChatScreen") ? "#7aa2f7" : "transparent"
+                        border.width: 2
+                        radius: 5
+                    }
                     onClicked: stackView.replace("ChatScreen.qml")
-                    Layout.preferredWidth: 100
-                    Layout.preferredHeight: 36
+                    
+                    Image {
+                        anchors.centerIn: parent
+                        source: "../icons/chat.svg"
+                        width: 24
+                        height: 24
+                        sourceSize.width: 24
+                        sourceSize.height: 24
+                    }
                 }
                 
                 Button {
-                    text: "Weather"
+                    id: weatherButton
+                    Layout.preferredWidth: 50
+                    Layout.preferredHeight: 40
+                    background: Rectangle {
+                        color: "transparent"
+                        border.color: stackView.currentItem.toString().includes("WeatherScreen") ? "#7aa2f7" : "transparent"
+                        border.width: 2
+                        radius: 5
+                    }
                     onClicked: stackView.replace("WeatherScreen.qml")
-                    Layout.preferredWidth: 100
-                    Layout.preferredHeight: 36
+                    
+                    Image {
+                        anchors.centerIn: parent
+                        source: "../icons/weather.svg"
+                        width: 24
+                        height: 24
+                        sourceSize.width: 24
+                        sourceSize.height: 24
+                    }
                 }
                 
                 Button {
-                    text: "Calendar"
+                    id: calendarButton
+                    Layout.preferredWidth: 50
+                    Layout.preferredHeight: 40
+                    background: Rectangle {
+                        color: "transparent"
+                        border.color: stackView.currentItem.toString().includes("CalendarScreen") ? "#7aa2f7" : "transparent"
+                        border.width: 2
+                        radius: 5
+                    }
                     onClicked: stackView.replace("CalendarScreen.qml")
-                    Layout.preferredWidth: 100
-                    Layout.preferredHeight: 36
+                    
+                    Image {
+                        anchors.centerIn: parent
+                        source: "../icons/calendar.svg"
+                        width: 24
+                        height: 24
+                        sourceSize.width: 24
+                        sourceSize.height: 24
+                    }
                 }
                 
                 Button {
-                    text: "Clock"
+                    id: clockButton
+                    Layout.preferredWidth: 50
+                    Layout.preferredHeight: 40
+                    background: Rectangle {
+                        color: "transparent"
+                        border.color: stackView.currentItem.toString().includes("ClockScreen") ? "#7aa2f7" : "transparent"
+                        border.width: 2
+                        radius: 5
+                    }
                     onClicked: stackView.replace("ClockScreen.qml")
-                    Layout.preferredWidth: 100
-                    Layout.preferredHeight: 36
+                    
+                    Image {
+                        anchors.centerIn: parent
+                        source: "../icons/clock.svg"
+                        width: 24
+                        height: 24
+                        sourceSize.width: 24
+                        sourceSize.height: 24
+                    }
                 }
                 
                 Button {
-                    text: "Photos"
+                    id: photosButton
+                    Layout.preferredWidth: 50
+                    Layout.preferredHeight: 40
+                    background: Rectangle {
+                        color: "transparent"
+                        border.color: stackView.currentItem.toString().includes("PhotoScreen") ? "#7aa2f7" : "transparent"
+                        border.width: 2
+                        radius: 5
+                    }
                     onClicked: stackView.replace("PhotoScreen.qml")
-                    Layout.preferredWidth: 100
-                    Layout.preferredHeight: 36
+                    
+                    Image {
+                        anchors.centerIn: parent
+                        source: "../icons/photos.svg"
+                        width: 24
+                        height: 24
+                        sourceSize.width: 24
+                        sourceSize.height: 24
+                    }
                 }
             }
         }

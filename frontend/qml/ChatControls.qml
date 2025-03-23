@@ -5,54 +5,120 @@ import QtQuick.Layouts 1.15
 // Controls component for Chat Screen
 RowLayout {
     id: chatControls
-    spacing: 8
+    spacing: 10
     
     // Reference to the screen this controls
     property var screen
     
+    // Force alignment to left
+    Layout.alignment: Qt.AlignLeft
+    
     Button {
         id: sttButton
-        text: "STT Off"
         property bool isListening: false
-        Layout.preferredWidth: 120
+        Layout.preferredWidth: 50
         Layout.preferredHeight: 40
+        background: Rectangle {
+            color: "transparent"
+            radius: 5
+        }
         onClicked: {
             isListening = !isListening
-            text = isListening ? "STT On" : "STT Off"
             screen.chatLogic.toggleSTT()
         }
+        
+        Image {
+            anchors.centerIn: parent
+            source: sttButton.isListening ? "../icons/stt_on.svg" : "../icons/stt_off.svg"
+            width: 24
+            height: 24
+            sourceSize.width: 24
+            sourceSize.height: 24
+        }
+        
+        ToolTip.visible: hovered
+        ToolTip.text: isListening ? "STT On" : "STT Off"
     }
     
     Button {
         id: ttsButton
-        text: "TTS Off"
         property bool isEnabled: false
-        Layout.preferredWidth: 120
+        Layout.preferredWidth: 50
         Layout.preferredHeight: 40
+        background: Rectangle {
+            color: "transparent"
+            radius: 5
+        }
         onClicked: {
             isEnabled = !isEnabled
-            text = isEnabled ? "TTS On" : "TTS Off"
             screen.chatLogic.toggleTTS()
         }
-    }
-    
-    Button {
-        id: clearButton
-        text: "CLEAR"
-        Layout.preferredWidth: 120
-        Layout.preferredHeight: 40
-        onClicked: {
-            screen.chatLogic.clearChat()
-            screen.chatModel.clear()
+        
+        Image {
+            anchors.centerIn: parent
+            source: ttsButton.isEnabled ? "../icons/sound_on.svg" : "../icons/sound_off.svg"
+            width: 24
+            height: 24
+            sourceSize.width: 24
+            sourceSize.height: 24
         }
+        
+        ToolTip.visible: hovered
+        ToolTip.text: isEnabled ? "TTS On" : "TTS Off"
     }
     
     Button {
         id: stopButton
-        text: "STOP"
-        Layout.preferredWidth: 120
+        Layout.preferredWidth: 50
         Layout.preferredHeight: 40
+        background: Rectangle {
+            color: "transparent"
+            radius: 5
+        }
         onClicked: screen.chatLogic.stopAll()
+        
+        Image {
+            anchors.centerIn: parent
+            source: "../icons/stop_all.svg"
+            width: 24
+            height: 24
+            sourceSize.width: 24
+            sourceSize.height: 24
+        }
+        
+        ToolTip.visible: hovered
+        ToolTip.text: "Stop"
+    }
+    
+    Button {
+        id: clearButton
+        Layout.preferredWidth: 50
+        Layout.preferredHeight: 40
+        background: Rectangle {
+            color: "transparent"
+            radius: 5
+        }
+        onClicked: {
+            screen.chatLogic.clearChat()
+            screen.chatModel.clear()
+        }
+        
+        Image {
+            anchors.centerIn: parent
+            source: "../icons/clear_all.svg"
+            width: 24
+            height: 24
+            sourceSize.width: 24
+            sourceSize.height: 24
+        }
+        
+        ToolTip.visible: hovered
+        ToolTip.text: "Clear"
+    }
+    
+    // Add a spacer to prevent stretching
+    Item {
+        Layout.fillWidth: true
     }
 
     // Connect signals from ChatLogic to update button states
@@ -61,12 +127,10 @@ RowLayout {
         
         function onSttStateChanged(enabled) {
             sttButton.isListening = enabled
-            sttButton.text = enabled ? "STT On" : "STT Off"
         }
         
         function onTtsStateChanged(enabled) {
             ttsButton.isEnabled = enabled
-            ttsButton.text = enabled ? "TTS On" : "TTS Off"
         }
     }
 } 
