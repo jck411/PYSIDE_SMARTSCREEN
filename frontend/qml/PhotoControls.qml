@@ -8,24 +8,8 @@ RowLayout {
     
     property var screen
     
-    Button {
-        text: "Upload"
-        Layout.preferredWidth: 120
-        Layout.preferredHeight: 36
-        onClicked: console.log("Upload clicked")
-    }
-    
-    Button {
-        text: "Slideshow"
-        Layout.preferredWidth: 120
-        Layout.preferredHeight: 36
-        onClicked: console.log("Slideshow clicked")
-    }
-    
-    Button {
-        text: "Edit"
-        Layout.preferredWidth: 120
-        Layout.preferredHeight: 36
-        onClicked: console.log("Edit clicked")
+    // Empty layout to maintain structure
+    Item {
+        Layout.fillWidth: true
     }
 } 

@@ -8,24 +8,8 @@ RowLayout {
     
     property var screen
     
-    Button {
-        text: "Set Alarm"
-        Layout.preferredWidth: 120
-        Layout.preferredHeight: 36
-        onClicked: console.log("Set alarm clicked")
-    }
-    
-    Button {
-        text: "Timer"
-        Layout.preferredWidth: 120
-        Layout.preferredHeight: 36
-        onClicked: console.log("Timer clicked")
-    }
-    
-    Button {
-        text: "Stopwatch"
-        Layout.preferredWidth: 120
-        Layout.preferredHeight: 36
-        onClicked: console.log("Stopwatch clicked")
+    // Empty layout to maintain structure
+    Item {
+        Layout.fillWidth: true
     }
 } 

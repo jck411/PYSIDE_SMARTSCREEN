@@ -8,24 +8,8 @@ RowLayout {
     
     property var screen
     
-    Button {
-        text: "Add Event"
-        Layout.preferredWidth: 120
-        Layout.preferredHeight: 36
-        onClicked: console.log("Add event clicked")
-    }
-    
-    Button {
-        text: "View Month"
-        Layout.preferredWidth: 120
-        Layout.preferredHeight: 36
-        onClicked: console.log("View month clicked")
-    }
-    
-    Button {
-        text: "Sync"
-        Layout.preferredWidth: 120
-        Layout.preferredHeight: 36
-        onClicked: console.log("Sync clicked")
+    // Empty layout to maintain structure
+    Item {
+        Layout.fillWidth: true
     }
 } 

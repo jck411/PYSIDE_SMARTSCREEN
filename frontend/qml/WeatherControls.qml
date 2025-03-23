@@ -8,24 +8,8 @@ RowLayout {
     
     property var screen
     
-    Button {
-        text: "Update Weather"
-        Layout.preferredWidth: 120
-        Layout.preferredHeight: 36
-        onClicked: console.log("Update weather clicked")
-    }
-    
-    Button {
-        text: "Change Location"
-        Layout.preferredWidth: 120
-        Layout.preferredHeight: 36
-        onClicked: console.log("Change location clicked")
-    }
-    
-    Button {
-        text: "Forecast"
-        Layout.preferredWidth: 120
-        Layout.preferredHeight: 36
-        onClicked: console.log("Forecast clicked")
+    // Empty layout to maintain structure
+    Item {
+        Layout.fillWidth: true
     }
 } 

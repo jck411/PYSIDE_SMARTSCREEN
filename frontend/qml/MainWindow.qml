@@ -36,7 +36,7 @@ Window {
                 Loader {
                     id: screenControlsLoader
                     Layout.fillHeight: true
-                    Layout.preferredWidth: 500
+                    Layout.preferredWidth: 200
                     
                     // Handle component loading status
                     onStatusChanged: {
@@ -46,7 +46,10 @@ Window {
                     }
                 }
                 
-                Item { Layout.fillWidth: true } // Spacer
+                Item { 
+                    Layout.fillWidth: true 
+                    Layout.preferredWidth: 50
+                } // Spacer
                 
                 // Navigation icons
                 Button {
@@ -157,6 +160,31 @@ Window {
                         sourceSize.width: 24
                         sourceSize.height: 24
                     }
+                }
+                
+                Button {
+                    id: settingsButton
+                    Layout.preferredWidth: 50
+                    Layout.preferredHeight: 40
+                    background: Rectangle {
+                        color: "transparent"
+                        border.color: stackView.currentItem.toString().includes("SettingsScreen") ? "#7aa2f7" : "transparent"
+                        border.width: 2
+                        radius: 5
+                    }
+                    onClicked: stackView.replace("SettingsScreen.qml")
+                    
+                    Image {
+                        anchors.centerIn: parent
+                        source: "../icons/settings.svg"
+                        width: 24
+                        height: 24
+                        sourceSize.width: 24
+                        sourceSize.height: 24
+                    }
+                    
+                    ToolTip.visible: hovered
+                    ToolTip.text: "Settings"
                 }
             }
         }
