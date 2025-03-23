@@ -1,6 +1,7 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
+import MyTheme 1.0
 
 Item {
     id: clockScreen
@@ -10,7 +11,7 @@ Item {
     
     Rectangle {
         anchors.fill: parent
-        color: "#1a1b26"
+        color: ThemeManager.background_color
 
         ColumnLayout {
             anchors.fill: parent
@@ -20,7 +21,7 @@ Item {
             Text {
                 id: timeText
                 Layout.alignment: Qt.AlignCenter
-                color: "#a9b1d6"
+                color: ThemeManager.text_primary_color
                 font.pixelSize: 72
                 font.bold: true
                 text: "00:00:00"
@@ -29,7 +30,7 @@ Item {
             Text {
                 id: dateText
                 Layout.alignment: Qt.AlignCenter
-                color: "#a9b1d6"
+                color: ThemeManager.text_primary_color
                 font.pixelSize: 28
                 text: "January 1, 2023"
             }

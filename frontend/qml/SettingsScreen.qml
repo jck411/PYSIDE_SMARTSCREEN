@@ -1,6 +1,7 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
+import MyTheme 1.0
 
 Item {
     id: settingsScreen
@@ -12,7 +13,7 @@ Item {
     
     Rectangle {
         anchors.fill: parent
-        color: "#1a1b26"
+        color: ThemeManager.background_color
 
         ScrollView {
             anchors.fill: parent
@@ -27,7 +28,7 @@ Item {
                 Rectangle {
                     Layout.fillWidth: true
                     height: 50
-                    color: "#24283b"
+                    color: ThemeManager.input_background_color
                     radius: 8
                     
                     Text {
@@ -35,7 +36,7 @@ Item {
                         text: "Application Settings"
                         font.pixelSize: 20
                         font.bold: true
-                        color: "#a9b1d6"
+                        color: ThemeManager.text_primary_color
                     }
                 }
                 
@@ -43,7 +44,7 @@ Item {
                 Rectangle {
                     Layout.fillWidth: true
                     height: themeLayout.height + 32
-                    color: "#24283b"
+                    color: ThemeManager.input_background_color
                     radius: 8
                     
                     ColumnLayout {
@@ -58,7 +59,7 @@ Item {
                             text: "Theme Settings"
                             font.pixelSize: 16
                             font.bold: true
-                            color: "#a9b1d6"
+                            color: ThemeManager.text_primary_color
                         }
                         
                         RowLayout {
@@ -67,7 +68,7 @@ Item {
                             
                             Text {
                                 text: "Dark Mode:"
-                                color: "#a9b1d6"
+                                color: ThemeManager.text_primary_color
                             }
                             
                             Switch {
@@ -84,7 +85,7 @@ Item {
                 Rectangle {
                     Layout.fillWidth: true
                     height: audioLayout.height + 32
-                    color: "#24283b"
+                    color: ThemeManager.input_background_color
                     radius: 8
                     
                     ColumnLayout {
@@ -99,7 +100,7 @@ Item {
                             text: "Audio Settings"
                             font.pixelSize: 16
                             font.bold: true
-                            color: "#a9b1d6"
+                            color: ThemeManager.text_primary_color
                         }
                         
                         RowLayout {
@@ -108,7 +109,7 @@ Item {
                             
                             Text {
                                 text: "TTS Volume:"
-                                color: "#a9b1d6"
+                                color: ThemeManager.text_primary_color
                             }
                             
                             Slider {
@@ -129,7 +130,7 @@ Item {
                             
                             Text {
                                 text: "STT Sensitivity:"
-                                color: "#a9b1d6"
+                                color: ThemeManager.text_primary_color
                             }
                             
                             Slider {
@@ -150,7 +151,7 @@ Item {
                 Rectangle {
                     Layout.fillWidth: true
                     height: otherLayout.height + 32
-                    color: "#24283b"
+                    color: ThemeManager.input_background_color
                     radius: 8
                     
                     ColumnLayout {
@@ -165,7 +166,7 @@ Item {
                             text: "Display Settings"
                             font.pixelSize: 16
                             font.bold: true
-                            color: "#a9b1d6"
+                            color: ThemeManager.text_primary_color
                         }
                         
                         RowLayout {
@@ -174,7 +175,7 @@ Item {
                             
                             Text {
                                 text: "Screen Brightness:"
-                                color: "#a9b1d6"
+                                color: ThemeManager.text_primary_color
                             }
                             
                             Slider {
@@ -200,4 +201,4 @@ Item {
             }
         }
     }
-} 
+}

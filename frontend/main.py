@@ -3,10 +3,11 @@ import sys
 import asyncio
 import signal
 from PySide6.QtGui import QGuiApplication
-from PySide6.QtQml import QQmlApplicationEngine, qmlRegisterType
+from PySide6.QtQml import QQmlApplicationEngine, qmlRegisterType, qmlRegisterSingletonInstance
 from PySide6.QtCore import QTimer
 from frontend.config import logger
 from frontend.logic.chatlogic import ChatLogic  # Updated import path
+from frontend.theme_manager import ThemeManager
 
 def main():
     app = QGuiApplication(sys.argv)
@@ -15,8 +16,14 @@ def main():
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     
+    # Create theme manager instance
+    theme_manager = ThemeManager()
+    
     # Register ChatLogic so QML can instantiate it
     qmlRegisterType(ChatLogic, "MyScreens", 1, 0, "ChatLogic")
+    
+    # Register ThemeManager as a singleton
+    qmlRegisterSingletonInstance(ThemeManager, "MyTheme", 1, 0, "ThemeManager", theme_manager)
     
     engine = QQmlApplicationEngine()
     

@@ -3,6 +3,7 @@ import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 
 import MyScreens 1.0
+import MyTheme 1.0  // Import our ThemeManager
 
 Item {
     id: chatScreen
@@ -17,7 +18,7 @@ Item {
     
     Rectangle {
         anchors.fill: parent
-        color: "#1a1b26"
+        color: ThemeManager.background_color
 
         ChatLogic {
             id: chatLogic
@@ -79,7 +80,7 @@ Item {
                     
                     delegate: Rectangle {
                         width: ListView.view ? ListView.view.width - 16 : 0
-                        color: model.isUser ? "#3b4261" : "#24283b"
+                        color: model.isUser ? ThemeManager.user_bubble_color : ThemeManager.assistant_bubble_color
                         radius: 8
                         height: contentLabel.paintedHeight + 16
                         
@@ -93,7 +94,7 @@ Item {
                             text: model.text
                             wrapMode: Text.Wrap
                             width: parent.width - 16
-                            color: "#a9b1d6"
+                            color: ThemeManager.text_primary_color
                             anchors.margins: 8
                             anchors.centerIn: parent
                         }
@@ -122,13 +123,13 @@ Item {
                         Layout.fillWidth: true
                         
                         background: Rectangle {
-                            color: "#24283b"
+                            color: ThemeManager.input_background_color
                             radius: 4
                             border.width: 1
-                            border.color: "#5a6181"
+                            border.color: ThemeManager.input_border_color
                         }
                         
-                        color: "#a9b1d6"
+                        color: ThemeManager.text_primary_color
                         selectByMouse: true
                         
                         Keys.onPressed: function(event) {
