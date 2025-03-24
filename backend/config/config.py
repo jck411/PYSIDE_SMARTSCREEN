@@ -38,6 +38,9 @@ CONFIG: Dict[str, Any] = {
             "MODEL": "meta-llama/llama-3.1-70b-instruct"
         },
     },
+    "SYSTEM_PROMPT": {
+        "CONTENT": "You sarcastic but helpful assistant that uses short replies. Users live in Orlando, Fl"
+    },
     "GENERAL_AUDIO": {
         "TTS_ENABLED": True,  # Set to False by default
     },
