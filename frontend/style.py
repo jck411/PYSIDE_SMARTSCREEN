@@ -15,7 +15,7 @@ LIGHT_COLORS = {
     "background": "#E8EEF5",
     "user_bubble": "#D0D7E1",
     "assistant_bubble": "#F7F9FB",
-    "text_primary": "#1C1E21",
+    "text_primary": "#3b4261",
     "text_secondary": "#65676B",
     "button_primary": "#0D8BD9",
     "button_hover": "#0A6CA8",
