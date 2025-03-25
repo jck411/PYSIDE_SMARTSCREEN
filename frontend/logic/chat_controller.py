@@ -1,21 +1,24 @@
 #!/usr/bin/env python3
 import json
 import asyncio
-import aiohttp
 import logging
 
 from PySide6.QtCore import QObject, Signal, Slot, Property, QTimer
 
-from frontend.config import HTTP_BASE_URL, logger
+from frontend.config import logger
 from frontend.logic.audio_manager import AudioManager
 from frontend.logic.websocket_client import WebSocketClient
 from frontend.logic.speech_manager import SpeechManager
 from frontend.logic.message_handler import MessageHandler
 from frontend.logic.chat.wake_word_handler import WakeWordHandler
+from frontend.logic.tts_controller import TTSController
+from frontend.logic.task_manager import TaskManager
+from frontend.logic.service_manager import ServiceManager
 
 class ChatController(QObject):
     """
     Main controller that coordinates all chat components.
+    Uses modular components to manage different aspects of the chat functionality.
     """
     # Signals for QML - these forward signals from the components
     messageReceived = Signal(str)           # From MessageHandler
@@ -23,7 +26,7 @@ class ChatController(QObject):
     sttStateChanged = Signal(bool)          # From SpeechManager
     audioReceived = Signal(bytes)           # From WebSocketClient
     connectionStatusChanged = Signal(bool)  # From WebSocketClient
-    ttsStateChanged = Signal(bool)          # From TTS state queries
+    ttsStateChanged = Signal(bool)          # From TTSController
     messageChunkReceived = Signal(str, bool)  # From MessageHandler
     sttInputTextReceived = Signal(str)      # From SpeechManager
 
@@ -31,17 +34,20 @@ class ChatController(QObject):
         super().__init__(parent)
         self._running = True
         self._connected = False
-        self._ttsEnabled = False
-        self.is_toggling_tts = False
         
         # Get the event loop but don't start tasks immediately
         self._loop = asyncio.get_event_loop()
+        
+        # Initialize task manager for async operations
+        self.task_manager = TaskManager(self._loop)
         
         # Initialize component managers
         self.audio_manager = AudioManager()
         self.speech_manager = SpeechManager()
         self.message_handler = MessageHandler()
         self.websocket_client = WebSocketClient()
+        self.tts_controller = TTSController(parent)
+        self.service_manager = ServiceManager()
         
         # Initialize wake word handler
         self.wake_word_handler = WakeWordHandler()
@@ -49,10 +55,6 @@ class ChatController(QObject):
         
         # Connect signals
         self._connect_signals()
-        
-        # Tasks for async operations
-        self._ws_task = None
-        self._audio_task = None
         
         # Start tasks with a small delay to ensure QML is set up
         QTimer = __import__('PySide6.QtCore', fromlist=['QTimer']).QTimer
@@ -62,13 +64,6 @@ class ChatController(QObject):
         timer.timeout.connect(self._startTasks)
         timer.start()
         
-        # Query TTS state at startup
-        tts_timer = QTimer(self)
-        tts_timer.setSingleShot(True)
-        tts_timer.setInterval(1000)  # 1 second delay
-        tts_timer.timeout.connect(lambda: self._loop.create_task(self._queryTTSState()))
-        tts_timer.start()
-        
         logger.info("[ChatController] Initialized")
 
     def _connect_signals(self):
@@ -76,7 +71,6 @@ class ChatController(QObject):
         # WebSocket client signals
         self.websocket_client.connectionStatusChanged.connect(self._handle_connection_change)
         self.websocket_client.messageReceived.connect(self._handle_websocket_message)
-        # FIXED: Connect to a regular method that will schedule the coroutine
         self.websocket_client.audioReceived.connect(self._handle_audio_data_signal)
         
         # Speech manager signals
@@ -88,14 +82,17 @@ class ChatController(QObject):
         self.message_handler.messageReceived.connect(self.messageReceived)
         self.message_handler.messageChunkReceived.connect(self.messageChunkReceived)
         
+        # TTS controller signals
+        self.tts_controller.ttsStateChanged.connect(self.ttsStateChanged)
+        
         # AudioManager sink state changes
         self.audio_manager.audioSink.stateChanged.connect(self.audio_manager.handle_audio_state_changed)
 
     def _startTasks(self):
         """Start the background tasks"""
         logger.info("[ChatController] Starting background tasks")
-        self._ws_task = self._loop.create_task(self.websocket_client.start_connection_loop())
-        self._audio_task = self._loop.create_task(self.audio_manager.start_audio_consumer())
+        self.task_manager.create_task("websocket", self.websocket_client.start_connection_loop())
+        self.task_manager.create_task("audio", self.audio_manager.start_audio_consumer())
         
         # Start wake word detection
         self.wake_word_handler.start_listening()
@@ -122,13 +119,12 @@ class ChatController(QObject):
             # Try to process as a message
             self.message_handler.process_message(data)
 
-    # FIXED: Added a non-coroutine method to handle the signal
     def _handle_audio_data_signal(self, audio_data):
         """
         Non-coroutine method that schedules the async processing of audio data.
         This is what gets connected to the audioReceived signal.
         """
-        self._loop.create_task(self._handle_audio_data(audio_data))
+        self.task_manager.schedule_coroutine(self._handle_audio_data(audio_data))
         logger.debug(f"[ChatController] Scheduled audio processing task for {len(audio_data)} bytes")
 
     async def _handle_audio_data(self, audio_data):
@@ -192,7 +188,7 @@ class ChatController(QObject):
             payload["continue_response"] = True
         
         # Send asynchronously
-        self._loop.create_task(self.websocket_client.send_message(payload))
+        self.task_manager.schedule_coroutine(self.websocket_client.send_message(payload))
         logger.info(f"[ChatController] Sending message: {text}{' (continuing interrupted response)' if has_interrupted else ''}")
 
     @Slot()
@@ -203,26 +199,7 @@ class ChatController(QObject):
     @Slot()
     def toggleTTS(self):
         """Toggle text-to-speech functionality"""
-        if self.is_toggling_tts:
-            return
-        self.is_toggling_tts = True
-        self._loop.create_task(self._toggleTTSAsync())
-
-    async def _toggleTTSAsync(self):
-        """
-        The actual async implementation of toggling TTS.
-        """
-        try:
-            async with aiohttp.ClientSession() as session:
-                async with session.post(f"{HTTP_BASE_URL}/api/toggle-tts") as resp:
-                    data = await resp.json()
-                    self._ttsEnabled = data.get("tts_enabled", not self._ttsEnabled)
-                    self.ttsStateChanged.emit(self._ttsEnabled)
-                    logger.info(f"[ChatController] TTS toggled => {self._ttsEnabled}")
-        except Exception as e:
-            logger.error(f"[ChatController] Error toggling TTS: {e}")
-        finally:
-            self.is_toggling_tts = False
+        self.task_manager.schedule_coroutine(self.tts_controller.toggleTTS())
 
     @Slot()
     def stopAll(self):
@@ -230,50 +207,23 @@ class ChatController(QObject):
         logger.info("[ChatController] Stop all triggered.")
         # Mark the current response as interrupted before stopping
         self.message_handler.mark_response_as_interrupted()
-        self._loop.create_task(self._stopAllAsync())
+        self.task_manager.schedule_coroutine(self._stopAllAsync())
 
     async def _stopAllAsync(self):
         """
         Stop TTS/generation and clean up resources.
         """
         # Save current TTS state before stopping
-        current_tts_state = self._ttsEnabled
+        current_tts_state = self.tts_controller.get_tts_enabled()
         logger.info(f"[ChatController] Current TTS state before stopping: {current_tts_state}")
         
-        try:
-            # Stop server-side operations
-            async with aiohttp.ClientSession() as session:
-                async with session.post(f"{HTTP_BASE_URL}/api/stop-audio") as resp1:
-                    resp1_data = await resp1.json()
-                    logger.info(f"[ChatController] Stop TTS response: {resp1_data}")
-
-                async with session.post(f"{HTTP_BASE_URL}/api/stop-generation") as resp2:
-                    resp2_data = await resp2.json()
-                    logger.info(f"[ChatController] Stop generation response: {resp2_data}")
-
-                # Restore TTS state if needed
-                if current_tts_state:
-                    logger.info("[ChatController] Restoring TTS state to enabled")
-                    await asyncio.sleep(0.5)  # Small delay to avoid race condition
-                    async with session.post(f"{HTTP_BASE_URL}/api/toggle-tts") as resp3:
-                        data = await resp3.json()
-                        restored_state = data.get("tts_enabled", False)
-                        logger.info(f"[ChatController] TTS state after restore attempt: {restored_state}")
-                        if restored_state != current_tts_state:
-                            # Try once more if state doesn't match expected
-                            await asyncio.sleep(0.5)
-                            async with session.post(f"{HTTP_BASE_URL}/api/toggle-tts") as resp4:
-                                final_data = await resp4.json()
-                                self._ttsEnabled = final_data.get("tts_enabled", current_tts_state)
-                                self.ttsStateChanged.emit(self._ttsEnabled)
-                        else:
-                            self._ttsEnabled = restored_state
-                            self.ttsStateChanged.emit(self._ttsEnabled)
-        except Exception as e:
-            logger.error(f"[ChatController] Error stopping TTS and generation on server: {e}")
-            # Still try to preserve TTS state
-            self._ttsEnabled = current_tts_state
-            self.ttsStateChanged.emit(self._ttsEnabled)
+        # Stop server-side operations
+        await self.service_manager.stop_all_services()
+        
+        # Restore TTS state if needed
+        if current_tts_state:
+            logger.info("[ChatController] Restoring TTS state to enabled")
+            await self.tts_controller.restore_tts_state(current_tts_state)
 
         # Stop client-side audio playback
         await self.audio_manager.stop_playback()
@@ -284,26 +234,6 @@ class ChatController(QObject):
         """Clear the chat history"""
         logger.info("[ChatController] Clearing chat history.")
         self.message_handler.clear_history()
-
-    async def _queryTTSState(self):
-        """Query the current TTS state from the server"""
-        logger.info("[ChatController] Querying initial TTS state from server")
-        try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get(f"{HTTP_BASE_URL}/api/tts-state") as resp:
-                    if resp.status == 200:
-                        data = await resp.json()
-                        self._ttsEnabled = data.get("tts_enabled", False)
-                        logger.info(f"[ChatController] Initial TTS state from server: {self._ttsEnabled}")
-                        self.ttsStateChanged.emit(self._ttsEnabled)
-                    else:
-                        logger.warning(f"[ChatController] Failed to get TTS state: {resp.status}")
-                        self._ttsEnabled = False
-                        self.ttsStateChanged.emit(self._ttsEnabled)
-        except Exception as e:
-            logger.error(f"[ChatController] Error querying TTS state: {e}")
-            self._ttsEnabled = False
-            self.ttsStateChanged.emit(self._ttsEnabled)
 
     def getConnected(self):
         """Get the connection status for Property binding"""
@@ -318,25 +248,14 @@ class ChatController(QObject):
         logger.info("[ChatController] Cleanup called. Stopping tasks.")
         self._running = False
 
-        # Clean up speech manager
+        # Clean up all managers
         self.speech_manager.cleanup()
-        
-        # Cancel WebSocket task
-        if hasattr(self, "_ws_task") and self._ws_task and not self._ws_task.done():
-            self._ws_task.cancel()
-        
-        # Clean up WebSocket client
         self.websocket_client.cleanup()
-
-        # Cancel audio task
-        if hasattr(self, "_audio_task") and self._audio_task and not self._audio_task.done():
-            self._audio_task.cancel()
-        
-        # Clean up audio manager
         self.audio_manager.cleanup()
-        
-        # Stop wake word detection
         self.wake_word_handler.stop_listening()
+        
+        # Cancel all tasks
+        self.task_manager.cleanup()
         
         logger.info("[ChatController] Cleanup complete.")
 
