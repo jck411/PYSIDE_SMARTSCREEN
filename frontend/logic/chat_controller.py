@@ -11,6 +11,7 @@ from frontend.logic.audio_manager import AudioManager
 from frontend.logic.websocket_client import WebSocketClient
 from frontend.logic.speech_manager import SpeechManager
 from frontend.logic.message_handler import MessageHandler
+from frontend.logic.chat.wake_word_handler import WakeWordHandler
 
 class ChatController(QObject):
     """
@@ -41,6 +42,10 @@ class ChatController(QObject):
         self.speech_manager = SpeechManager()
         self.message_handler = MessageHandler()
         self.websocket_client = WebSocketClient()
+        
+        # Initialize wake word handler
+        self.wake_word_handler = WakeWordHandler()
+        self.wake_word_handler.set_tts_callback(self._enable_tts_on_wake_word)
         
         # Connect signals
         self._connect_signals()
@@ -91,6 +96,10 @@ class ChatController(QObject):
         logger.info("[ChatController] Starting background tasks")
         self._ws_task = self._loop.create_task(self.websocket_client.start_connection_loop())
         self._audio_task = self._loop.create_task(self.audio_manager.start_audio_consumer())
+        
+        # Start wake word detection
+        self.wake_word_handler.start_listening()
+        logger.info("[ChatController] Wake word detection started")
 
     def _handle_connection_change(self, connected):
         """Handle WebSocket connection status changes"""
@@ -326,4 +335,16 @@ class ChatController(QObject):
         # Clean up audio manager
         self.audio_manager.cleanup()
         
+        # Stop wake word detection
+        self.wake_word_handler.stop_listening()
+        
         logger.info("[ChatController] Cleanup complete.")
+
+    async def _enable_tts_on_wake_word(self):
+        """Enable STT when wake word is detected"""
+        logger.info("[ChatController] Wake word detected - enabling STT")
+        
+        # Enable STT if it's not already enabled
+        if not self.speech_manager.is_stt_enabled():
+            self.toggleSTT()
+            logger.info("[ChatController] STT enabled after wake word")
