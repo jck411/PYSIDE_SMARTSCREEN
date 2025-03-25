@@ -42,13 +42,21 @@ def convert_mp3_to_pcm(source_file, target_file):
         # Load the MP3 file
         audio = AudioSegment.from_mp3(source_file)
         
+        # Get original duration
+        original_duration = len(audio)
+        
         # Convert to the required format
         audio = audio.set_frame_rate(24000)  # 24kHz sample rate
         audio = audio.set_channels(1)       # Mono
         audio = audio.set_sample_width(2)   # 16-bit
         
-        # Print the format information
+        # Add 100ms of silence to the end to prevent cutoff
+        silence = AudioSegment.silent(duration=100, frame_rate=24000)
+        audio = audio + silence
+        
+        # Print the format and duration information
         print(f"Converted format: {audio.channels} channels, {audio.sample_width*8}-bit, {audio.frame_rate}Hz")
+        print(f"Original duration: {original_duration}ms, New duration with padding: {len(audio)}ms")
         
         # Get the raw PCM data
         pcm_data = audio.raw_data
@@ -89,4 +97,4 @@ def main():
             print(f"Failed to convert {base_name}")
 
 if __name__ == "__main__":
-    main() 
+    main()
