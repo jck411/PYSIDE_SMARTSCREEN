@@ -6,7 +6,7 @@ from PySide6.QtGui import QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine, qmlRegisterType, qmlRegisterSingletonInstance
 from PySide6.QtCore import QTimer
 from frontend.config import logger
-from frontend.logic.chatlogic import ChatLogic  # Updated import path
+from frontend.logic.chat.core.chatlogic import ChatLogic  # Updated import path
 from frontend.theme_manager import ThemeManager
 
 def main():

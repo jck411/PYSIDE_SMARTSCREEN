@@ -2,6 +2,7 @@
 import json
 import asyncio
 import logging
+import os
 
 from PySide6.QtCore import QObject, Signal, Slot, Property, QTimer
 
@@ -9,8 +10,8 @@ from frontend.config import logger
 from frontend.logic.audio_manager import AudioManager
 from frontend.logic.websocket_client import WebSocketClient
 from frontend.logic.speech_manager import SpeechManager
-from frontend.logic.message_handler import MessageHandler
-from frontend.logic.chat.wake_word_handler import WakeWordHandler
+from frontend.logic.chat.handlers.message_handler import MessageHandler
+from frontend.logic.voice.wake_word_handler import WakeWordHandler
 from frontend.logic.tts_controller import TTSController
 from frontend.logic.task_manager import TaskManager
 from frontend.logic.service_manager import ServiceManager
@@ -262,6 +263,33 @@ class ChatController(QObject):
     async def _enable_tts_on_wake_word(self):
         """Enable STT when wake word is detected"""
         logger.info("[ChatController] Wake word detected - enabling STT")
+        
+        # Play the wake sound
+        try:
+            # Construct the path to the wakesound PCM file
+            wakesound_path = os.path.join(
+                os.path.dirname(__file__), 
+                '..', '..', '..', 'wakeword', 'sounds', 'Wakesound.pcm'
+            )
+            
+            # Check if the file exists
+            if os.path.exists(wakesound_path):
+                logger.info(f"[ChatController] Playing wake sound from {wakesound_path}")
+                # Read the PCM data
+                with open(wakesound_path, 'rb') as f:
+                    pcm_data = f.read()
+                
+                # Process the PCM audio data
+                await self.audio_manager.process_audio_data(pcm_data)
+                logger.info("[ChatController] Wake sound playback initiated")
+                
+                # Send end-of-stream marker to ensure playback completes properly
+                await self.audio_manager.process_audio_data(b'')
+                logger.info("[ChatController] Wake sound playback completed")
+            else:
+                logger.error(f"[ChatController] Wake sound file not found at {wakesound_path}")
+        except Exception as e:
+            logger.error(f"[ChatController] Error playing wake sound: {e}")
         
         # Enable STT if it's not already enabled
         if not self.speech_manager.is_stt_enabled():

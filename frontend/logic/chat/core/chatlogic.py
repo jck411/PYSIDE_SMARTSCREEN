@@ -8,7 +8,7 @@ from PySide6.QtCore import (
 )
 
 from frontend.config import logger
-from frontend.logic.chat_controller import ChatController
+from frontend.logic.chat.core.chat_controller import ChatController
 
 class ChatLogic(QObject):
     """
