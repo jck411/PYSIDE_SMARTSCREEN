@@ -67,7 +67,6 @@ class SpeechManager(QObject):
         try:
             if hasattr(self.frontend_stt, 'toggle'):
                 self.frontend_stt.toggle()
-                self.handle_frontend_stt_state(not self.stt_listening)
             else:
                 logger.error("[SpeechManager] Frontend STT implementation missing toggle method")
                 self.handle_frontend_stt_state(not self.stt_listening)
