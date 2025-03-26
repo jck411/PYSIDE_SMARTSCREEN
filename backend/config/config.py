@@ -67,7 +67,7 @@ CONFIG: Dict[str, Any] = {
         },
         "AZURE_TTS": {
             "TTS_SPEED": "0%",
-            "TTS_VOICE": "en-US-KaiNeural",
+            "TTS_VOICE": "en-US-Alloy:DragonHDLatestNeural", #en-US-AlloyTurboMultilingualNeural #en-US-Alloy:DragonHDLatestNeural
             "SPEECH_SYNTHESIS_RATE": "0%",
             "AUDIO_FORMAT": "Raw24Khz16BitMonoPcm",
             "AUDIO_FORMAT_RATES": {
