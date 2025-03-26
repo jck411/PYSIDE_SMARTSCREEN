@@ -2,51 +2,55 @@
 
 This directory contains scripts for setting up the SmartScreen frontend on a Raspberry Pi.
 
-## Prerequisites
+## Required Files
 
-- Raspberry Pi with Raspberry Pi OS or similar Debian-based Linux
-- Python 3.7 or higher
-- Internet connection for downloading packages
+- `setup_frontend.sh`: Script to create a virtual environment and install required dependencies
+- `install_system_deps.sh`: Script to install system dependencies required by the frontend
+- `launch.sh`: Simple script to launch the frontend
+- `SmartScreen.desktop`: Desktop entry file for launching the application
 
 ## Setup Instructions
 
-1. Connect to your Raspberry Pi via SSH or use the local terminal
-
-2. Clone this repository:
-   ```
-   git clone https://github.com/yourusername/PYSIDE_SMARTSCREEN.git
-   cd PYSIDE_SMARTSCREEN
-   ```
-
-3. Install system dependencies:
+1. Install system dependencies:
    ```
    ./raspi_setup/install_system_deps.sh
    ```
    
    This will install necessary system packages for PySide6, audio processing, and Qt.
 
-4. Set up the Python environment:
+2. Set up the Python environment:
    ```
    ./raspi_setup/setup_frontend.sh
    ```
    
-   This will:
-   - Create a Python virtual environment
-   - Install all required Python dependencies for the frontend
-   - Make the main frontend script executable
+   This will create a virtual environment and install all required Python dependencies.
 
-5. Start the frontend application:
+3. Start the frontend application:
    ```
-   source smartscreen_venv/bin/activate
-   python -m frontend.main
+   ./raspi_setup/launch.sh
    ```
+
+## Desktop Launcher
+
+To create a desktop launcher:
+
+1. Copy the desktop file to your desktop:
+   ```
+   cp raspi_setup/SmartScreen.desktop ~/Desktop/
+   ```
+
+2. Make it executable:
+   ```
+   chmod +x ~/Desktop/SmartScreen.desktop
+   ```
+
+3. Right-click the desktop file and select "Allow Launching"
 
 ## Troubleshooting
 
 ### PyAudio Installation Issues
 
-If you encounter issues installing PyAudio, you may need to install portaudio development libraries first:
-
+If you encounter issues installing PyAudio:
 ```
 sudo apt-get update
 sudo apt-get install portaudio19-dev
@@ -54,24 +58,15 @@ sudo apt-get install portaudio19-dev
 
 ### PySide6 Installation Issues
 
-If you experience problems with PySide6 installation, ensure you have the required system dependencies:
-
+If you have problems with PySide6 installation:
 ```
 sudo apt-get update
 sudo apt-get install -y build-essential libgl1-mesa-dev libglib2.0-dev
 ```
 
-### Display Issues
-
-For Raspberry Pi with display issues:
-
-```
-sudo apt-get install -y xorg
-```
-
 ## Running at System Startup
 
-To automatically start the SmartScreen frontend when the Raspberry Pi boots:
+To run the application at system startup:
 
 1. Create a systemd service file:
    ```
@@ -86,8 +81,8 @@ To automatically start the SmartScreen frontend when the Raspberry Pi boots:
 
    [Service]
    User=pi
-   WorkingDirectory=/home/pi/PYSIDE_SMARTSCREEN
-   ExecStart=/home/pi/PYSIDE_SMARTSCREEN/smartscreen_venv/bin/python -m frontend.main
+   WorkingDirectory=/home/jck411/PYSIDE_SMARTSCREEN
+   ExecStart=/home/jck411/PYSIDE_SMARTSCREEN/raspi_setup/launch.sh
    Restart=on-failure
 
    [Install]

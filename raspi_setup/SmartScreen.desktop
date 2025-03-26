@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=SmartScreen
+Comment=Launch SmartScreen Frontend
+Exec=/home/jck411/PYSIDE_SMARTSCREEN/raspi_setup/launch.sh
+Terminal=false
+Icon=applications-multimedia
+Categories=Utility;AudioVideo;
+StartupNotify=true 
