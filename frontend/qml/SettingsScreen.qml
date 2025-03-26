@@ -24,31 +24,15 @@ Item {
                 width: settingsScreen.width - 32
                 spacing: 16
                 
-                // Header
+                // STT Settings section
                 Rectangle {
                     Layout.fillWidth: true
-                    height: 50
-                    color: ThemeManager.input_background_color
-                    radius: 8
-                    
-                    Text {
-                        anchors.centerIn: parent
-                        text: "Application Settings"
-                        font.pixelSize: 20
-                        font.bold: true
-                        color: ThemeManager.text_primary_color
-                    }
-                }
-                
-                // Theme section
-                Rectangle {
-                    Layout.fillWidth: true
-                    height: themeLayout.height + 32
+                    height: sttLayout.height + 32
                     color: ThemeManager.input_background_color
                     radius: 8
                     
                     ColumnLayout {
-                        id: themeLayout
+                        id: sttLayout
                         anchors.left: parent.left
                         anchors.right: parent.right
                         anchors.top: parent.top
@@ -56,7 +40,7 @@ Item {
                         spacing: 8
                         
                         Text {
-                            text: "Theme Settings"
+                            text: "STT Settings"
                             font.pixelSize: 16
                             font.bold: true
                             color: ThemeManager.text_primary_color
@@ -67,29 +51,29 @@ Item {
                             spacing: 16
                             
                             Text {
-                                text: "Dark Mode:"
+                                text: "Auto Send:"
                                 color: ThemeManager.text_primary_color
                             }
                             
                             Switch {
                                 checked: true
                                 onCheckedChanged: {
-                                    console.log("Dark mode: " + checked)
+                                    console.log("Auto Send: " + checked)
                                 }
                             }
                         }
                     }
                 }
                 
-                // Audio section
+                // TTS Settings section
                 Rectangle {
                     Layout.fillWidth: true
-                    height: audioLayout.height + 32
+                    height: ttsLayout.height + 32
                     color: ThemeManager.input_background_color
                     radius: 8
                     
                     ColumnLayout {
-                        id: audioLayout
+                        id: ttsLayout
                         anchors.left: parent.left
                         anchors.right: parent.right
                         anchors.top: parent.top
@@ -97,97 +81,10 @@ Item {
                         spacing: 8
                         
                         Text {
-                            text: "Audio Settings"
+                            text: "TTS Settings"
                             font.pixelSize: 16
                             font.bold: true
                             color: ThemeManager.text_primary_color
-                        }
-                        
-                        RowLayout {
-                            Layout.fillWidth: true
-                            spacing: 16
-                            
-                            Text {
-                                text: "TTS Volume:"
-                                color: ThemeManager.text_primary_color
-                            }
-                            
-                            Slider {
-                                id: ttsVolumeSlider
-                                Layout.fillWidth: true
-                                from: 0
-                                to: 100
-                                value: 80
-                                onValueChanged: {
-                                    console.log("TTS volume: " + value)
-                                }
-                            }
-                        }
-                        
-                        RowLayout {
-                            Layout.fillWidth: true
-                            spacing: 16
-                            
-                            Text {
-                                text: "STT Sensitivity:"
-                                color: ThemeManager.text_primary_color
-                            }
-                            
-                            Slider {
-                                id: sttSensitivitySlider
-                                Layout.fillWidth: true
-                                from: 0
-                                to: 100
-                                value: 70
-                                onValueChanged: {
-                                    console.log("STT sensitivity: " + value)
-                                }
-                            }
-                        }
-                    }
-                }
-                
-                // Other settings
-                Rectangle {
-                    Layout.fillWidth: true
-                    height: otherLayout.height + 32
-                    color: ThemeManager.input_background_color
-                    radius: 8
-                    
-                    ColumnLayout {
-                        id: otherLayout
-                        anchors.left: parent.left
-                        anchors.right: parent.right
-                        anchors.top: parent.top
-                        anchors.margins: 16
-                        spacing: 8
-                        
-                        Text {
-                            text: "Display Settings"
-                            font.pixelSize: 16
-                            font.bold: true
-                            color: ThemeManager.text_primary_color
-                        }
-                        
-                        RowLayout {
-                            Layout.fillWidth: true
-                            spacing: 16
-                            
-                            Text {
-                                text: "Screen Brightness:"
-                                color: ThemeManager.text_primary_color
-                            }
-                            
-                            Slider {
-                                id: brightnessSlider
-                                Layout.fillWidth: true
-                                from: 0
-                                to: 100
-                                value: 100
-                                onValueChanged: {
-                                    console.log("Brightness: " + value)
-                                }
-                            }
                         }
                     }
                 }
