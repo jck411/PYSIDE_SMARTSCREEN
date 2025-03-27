@@ -28,7 +28,8 @@ class DeepgramSTT(QObject):
     complete_utterance_received = Signal(str)
     state_changed = Signal(bool)
     enabled_changed = Signal(bool)
-
+    auto_send_utterance = Signal(str)  # Signal for auto-sending utterances to chat
+    
     def __init__(self):
         super().__init__()
         self.is_enabled = STT_CONFIG['enabled']
@@ -36,6 +37,7 @@ class DeepgramSTT(QObject):
         self.is_finals = []
         self.keepalive_active = False
         self.use_keepalive = STT_CONFIG.get('use_keepalive', True)
+        self.auto_send = STT_CONFIG.get('auto_send', False)
         # Create a dedicated event loop for Deepgram tasks and run it in a separate thread.
         self.dg_loop = asyncio.new_event_loop()
         self.dg_thread = threading.Thread(target=self._run_dg_loop, daemon=True)
@@ -109,6 +111,12 @@ class DeepgramSTT(QObject):
                 logging.info("[COMPLETE UTTERANCE] %s", utterance)
                 logging.info("[UTTERANCE INFO] Segments combined: %d", len(self.is_finals))
                 self.complete_utterance_received.emit(utterance)
+                
+                # Auto-send the utterance to chat if enabled
+                if self.auto_send and utterance.strip():
+                    logging.info("[AUTO SEND] Sending utterance to chat: %s", utterance)
+                    self.auto_send_utterance.emit(utterance)
+                
                 self.is_finals = []
             else:
                 logging.info("[UTTERANCE END] No final segments to combine")
@@ -333,3 +341,13 @@ class DeepgramSTT(QObject):
         [task.cancel() for task in tasks]
         await asyncio.gather(*tasks, return_exceptions=True)
         loop.stop()
+
+    def set_auto_send(self, enabled: bool):
+        """Enable or disable automatic sending of transcribed text to chat"""
+        if self.auto_send != enabled:
+            self.auto_send = enabled
+            logging.info(f"Auto-send {'enabled' if enabled else 'disabled'}")
+            
+    def get_auto_send(self) -> bool:
+        """Get the current auto-send setting"""
+        return self.auto_send

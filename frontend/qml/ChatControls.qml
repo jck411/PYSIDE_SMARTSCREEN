@@ -116,6 +116,33 @@ RowLayout {
         ToolTip.text: "Clear"
     }
     
+    Button {
+        id: autoSendButton
+        property bool isEnabled: false
+        Layout.preferredWidth: 50
+        Layout.preferredHeight: 40
+        background: Rectangle {
+            color: "transparent"
+            radius: 5
+        }
+        onClicked: {
+            isEnabled = !isEnabled
+            screen.chatLogic.setAutoSend(isEnabled)
+        }
+        
+        Image {
+            anchors.centerIn: parent
+            source: autoSendButton.isEnabled ? "../icons/auto_send_on.svg" : "../icons/auto_send_off.svg"
+            width: 24
+            height: 24
+            sourceSize.width: 24
+            sourceSize.height: 24
+        }
+        
+        ToolTip.visible: hovered
+        ToolTip.text: isEnabled ? "Auto-send On" : "Auto-send Off"
+    }
+    
     // Add a spacer to prevent stretching
     Item {
         Layout.fillWidth: true
@@ -132,5 +159,12 @@ RowLayout {
         function onTtsStateChanged(enabled) {
             ttsButton.isEnabled = enabled
         }
+        
+        // Initialize auto-send button state when the component is loaded
+        Component.onCompleted: {
+            if (screen && screen.chatLogic) {
+                autoSendButton.isEnabled = screen.chatLogic.isAutoSendEnabled()
+            }
+        }
     }
-} 
+}

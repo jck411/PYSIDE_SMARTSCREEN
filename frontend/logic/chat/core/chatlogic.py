@@ -27,6 +27,7 @@ class ChatLogic(QObject):
     ttsStateChanged = Signal(bool)          # Emitted when TTS state toggles
     messageChunkReceived = Signal(str, bool)  # Emitted when a message chunk is received (text, is_final)
     sttInputTextReceived = Signal(str)      # Emitted when complete STT utterance should be set as input text
+    sttAutoSubmitText = Signal(str)         # Emitted when text should be automatically submitted to chat
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -49,6 +50,7 @@ class ChatLogic(QObject):
         self.controller.ttsStateChanged.connect(self.ttsStateChanged)
         self.controller.messageChunkReceived.connect(self.messageChunkReceived)
         self.controller.sttInputTextReceived.connect(self.sttInputTextReceived)
+        self.controller.sttAutoSubmitText.connect(self.sttAutoSubmitText)
 
     @Slot(str)
     def sendMessage(self, text):
@@ -74,6 +76,20 @@ class ChatLogic(QObject):
     def clearChat(self):
         """Delegate to controller"""
         self.controller.clearChat()
+
+    @Slot(bool)
+    def setAutoSend(self, enabled):
+        """Delegate to controller"""
+        self.controller.setAutoSend(enabled)
+        
+    @Slot()
+    def toggleAutoSend(self):
+        """Delegate to controller"""
+        self.controller.toggleAutoSend()
+        
+    def isAutoSendEnabled(self):
+        """Get auto-send status from controller"""
+        return self.controller.isAutoSendEnabled()
 
     def getConnected(self):
         """Get connection status from controller"""

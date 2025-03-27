@@ -55,6 +55,13 @@ Item {
             onSttInputTextReceived: function(text) {
                 inputField.text = text
             }
+            
+            onSttAutoSubmitText: function(text) {
+                // Auto-submitted text from STT
+                chatModel.append({ "text": text, "isUser": true })
+                chatView.autoScroll = true
+                chatView.positionViewAtEnd()
+            }
         }
 
         Rectangle {

@@ -30,6 +30,7 @@ class ChatController(QObject):
     ttsStateChanged = Signal(bool)          # From TTSController
     messageChunkReceived = Signal(str, bool)  # From MessageHandler
     sttInputTextReceived = Signal(str)      # From SpeechManager
+    sttAutoSubmitText = Signal(str)         # For auto-submitting STT text to chat
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -78,6 +79,7 @@ class ChatController(QObject):
         self.speech_manager.sttTextReceived.connect(self.sttTextReceived)
         self.speech_manager.sttStateChanged.connect(self.sttStateChanged)
         self.speech_manager.sttInputTextReceived.connect(self.sttInputTextReceived)
+        self.speech_manager.sttAutoSubmitText.connect(self._handle_auto_submit)
         
         # MessageHandler signals
         self.message_handler.messageReceived.connect(self.messageReceived)
@@ -236,6 +238,23 @@ class ChatController(QObject):
         logger.info("[ChatController] Clearing chat history.")
         self.message_handler.clear_history()
 
+    @Slot(bool)
+    def setAutoSend(self, enabled):
+        """Enable or disable automatic sending of transcribed text to chat"""
+        logger.info(f"[ChatController] Setting auto-send to {enabled}")
+        self.speech_manager.set_auto_send(enabled)
+        
+    @Slot()
+    def toggleAutoSend(self):
+        """Toggle auto-send functionality"""
+        current = self.speech_manager.is_auto_send_enabled()
+        logger.info(f"[ChatController] Toggling auto-send from {current} to {not current}")
+        self.speech_manager.set_auto_send(not current)
+        
+    def isAutoSendEnabled(self):
+        """Get the current auto-send setting"""
+        return self.speech_manager.is_auto_send_enabled()
+
     def getConnected(self):
         """Get the connection status for Property binding"""
         return self._connected
@@ -273,7 +292,7 @@ class ChatController(QObject):
             )
             
             # Check if the file exists
-            if os.path.exists(wakesound_path):
+            if (wakesound_path):
                 logger.info(f"[ChatController] Playing wake sound from {wakesound_path}")
                 # Read the PCM data
                 with open(wakesound_path, 'rb') as f:
@@ -295,3 +314,11 @@ class ChatController(QObject):
         if not self.speech_manager.is_stt_enabled():
             self.toggleSTT()
             logger.info("[ChatController] STT enabled after wake word")
+
+    @Slot(str)
+    def _handle_auto_submit(self, text):
+        """Handle automatic submission of text from STT to chat"""
+        if text.strip():
+            logger.info(f"[ChatController] Auto-submitting text to chat: {text}")
+            self.sttAutoSubmitText.emit(text)  # Forward to QML
+            self.sendMessage(text)  # Send to backend immediately

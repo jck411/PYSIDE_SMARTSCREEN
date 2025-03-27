@@ -15,6 +15,7 @@ class SpeechManager(QObject):
     sttTextReceived = Signal(str)           # Emitted when partial or final STT text arrives
     sttStateChanged = Signal(bool)          # Emitted when STT state toggles
     sttInputTextReceived = Signal(str)      # Emitted when complete STT utterance should be set as input text
+    sttAutoSubmitText = Signal(str)         # Emitted when text should be automatically submitted to chat
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -29,6 +30,7 @@ class SpeechManager(QObject):
         self.frontend_stt.transcription_received.connect(self.handle_interim_stt_text)
         self.frontend_stt.complete_utterance_received.connect(self.handle_frontend_stt_text)
         self.frontend_stt.state_changed.connect(self.handle_frontend_stt_state)
+        self.frontend_stt.auto_send_utterance.connect(self.handle_auto_send_text)
         
         logger.info("[SpeechManager] Initialized with Deepgram STT")
 
@@ -55,6 +57,12 @@ class SpeechManager(QObject):
             logger.warning("[SpeechManager] STT state update task was cancelled - expected during shutdown")
         except Exception as e:
             logger.error(f"[SpeechManager] Error updating STT state: {e}")
+
+    def handle_auto_send_text(self, text):
+        """Handle auto-send text"""
+        if text.strip():
+            logger.info(f"[SpeechManager] Auto-send utterance: {text}")
+            self.sttAutoSubmitText.emit(text)
 
     @Slot()
     def toggle_stt(self):
@@ -86,6 +94,16 @@ class SpeechManager(QObject):
         """Pause or resume STT without changing the enabled state"""
         self.frontend_stt.set_paused(paused)
         logger.info(f"[SpeechManager] STT paused: {paused}")
+
+    @Slot(bool)
+    def set_auto_send(self, enabled):
+        """Enable or disable automatic sending of transcribed text to chat"""
+        self.frontend_stt.set_auto_send(enabled)
+        logger.info(f"[SpeechManager] Auto-send {'enabled' if enabled else 'disabled'}")
+
+    def is_auto_send_enabled(self):
+        """Returns whether auto-send is currently enabled"""
+        return self.frontend_stt.get_auto_send()
 
     def cleanup(self):
         """Clean up resources"""
