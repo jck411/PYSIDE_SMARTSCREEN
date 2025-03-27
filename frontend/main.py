@@ -8,6 +8,7 @@ from PySide6.QtCore import QTimer
 from frontend.config import logger
 from frontend.logic.chat.core.chatlogic import ChatLogic  # Updated import path
 from frontend.theme_manager import ThemeManager
+from frontend.settings_manager import get_settings_manager, SettingsManager
 
 def main():
     app = QGuiApplication(sys.argv)
@@ -19,11 +20,17 @@ def main():
     # Create theme manager instance
     theme_manager = ThemeManager()
     
+    # Get settings manager instance
+    settings_manager = get_settings_manager()
+    
     # Register ChatLogic so QML can instantiate it
     qmlRegisterType(ChatLogic, "MyScreens", 1, 0, "ChatLogic")
     
     # Register ThemeManager as a singleton
     qmlRegisterSingletonInstance(ThemeManager, "MyTheme", 1, 0, "ThemeManager", theme_manager)
+    
+    # Register SettingsManager as a singleton
+    qmlRegisterSingletonInstance(SettingsManager, "MySettings", 1, 0, "SettingsManager", settings_manager)
     
     engine = QQmlApplicationEngine()
     

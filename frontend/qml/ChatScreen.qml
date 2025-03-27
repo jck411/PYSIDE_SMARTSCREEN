@@ -4,6 +4,7 @@ import QtQuick.Layouts 1.15
 
 import MyScreens 1.0
 import MyTheme 1.0  // Import our ThemeManager
+import MySettings 1.0
 
 Item {
     id: chatScreen
@@ -15,6 +16,14 @@ Item {
     
     // Property to tell MainWindow which controls to load
     property string screenControls: "ChatControls.qml"
+    
+    // Initialize settings when screen becomes visible
+    onVisibleChanged: {
+        if (visible && chatLogic) {
+            // Let chatLogic initialize from its controller's settings
+            // No need to set it from here
+        }
+    }
     
     Rectangle {
         anchors.fill: parent

@@ -15,6 +15,7 @@ from frontend.logic.voice.wake_word_handler import WakeWordHandler
 from frontend.logic.tts_controller import TTSController
 from frontend.logic.task_manager import TaskManager
 from frontend.logic.service_manager import ServiceManager
+from frontend.settings_manager import get_settings_manager
 
 class ChatController(QObject):
     """
@@ -43,6 +44,9 @@ class ChatController(QObject):
         # Initialize task manager for async operations
         self.task_manager = TaskManager(self._loop)
         
+        # Get the settings manager
+        self.settings_manager = get_settings_manager()
+        
         # Initialize component managers
         self.audio_manager = AudioManager()
         self.speech_manager = SpeechManager()
@@ -50,6 +54,11 @@ class ChatController(QObject):
         self.websocket_client = WebSocketClient()
         self.tts_controller = TTSController(parent)
         self.service_manager = ServiceManager()
+        
+        # Initialize settings from settings manager
+        auto_send_enabled = self.settings_manager.get_auto_send()
+        self.speech_manager.set_auto_send(auto_send_enabled)
+        logger.info(f"[ChatController] Initialized with auto-send: {auto_send_enabled}")
         
         # Initialize wake word handler
         self.wake_word_handler = WakeWordHandler()

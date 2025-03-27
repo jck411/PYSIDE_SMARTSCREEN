@@ -2,6 +2,8 @@ import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
 import MyTheme 1.0
+import MyScreens 1.0
+import MySettings 1.0
 
 Item {
     id: settingsScreen
@@ -10,6 +12,35 @@ Item {
     // Empty property for controls to maintain pattern with other screens
     // No controls needed for now, but we'll keep the pattern
     property string screenControls: "SettingsControls.qml"
+    
+    // Reference to ChatLogic for managing settings
+    property ChatLogic chatLogic: ChatLogic {}
+    
+    // Access the auto-send setting directly from the python properties
+    property bool autoSendEnabled: false
+    
+    // Component loading completed - initialize settings
+    Component.onCompleted: {
+        initSettings()
+    }
+    
+    // When the component becomes visible, refresh settings from the backend
+    onVisibleChanged: {
+        if (visible) {
+            initSettings()
+        }
+    }
+    
+    // Initialize settings from ChatLogic
+    function initSettings() {
+        try {
+            // Get the current auto-send state directly from the chatLogic
+            autoSendEnabled = chatLogic.isAutoSendEnabled()
+            autoSendSwitch.checked = autoSendEnabled
+        } catch (e) {
+            console.error("Error initializing settings:", e)
+        }
+    }
     
     Rectangle {
         anchors.fill: parent
@@ -56,10 +87,21 @@ Item {
                             }
                             
                             Switch {
-                                checked: true
+                                id: autoSendSwitch
+                                checked: autoSendEnabled
                                 onCheckedChanged: {
                                     console.log("Auto Send: " + checked)
+                                    chatLogic.setAutoSend(checked)
+                                    autoSendEnabled = checked
                                 }
+                            }
+                            
+                            Text {
+                                text: "(automatically send transcribed text to chat)"
+                                font.italic: true
+                                font.pixelSize: 12
+                                color: ThemeManager.text_secondary_color
+                                Layout.fillWidth: true
                             }
                         }
                     }

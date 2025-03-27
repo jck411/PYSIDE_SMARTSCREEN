@@ -87,8 +87,9 @@ class ChatLogic(QObject):
         """Delegate to controller"""
         self.controller.toggleAutoSend()
         
+    @Slot(result=bool)
     def isAutoSendEnabled(self):
-        """Get auto-send status from controller"""
+        """Get the current auto-send setting"""
         return self.controller.isAutoSendEnabled()
 
     def getConnected(self):
