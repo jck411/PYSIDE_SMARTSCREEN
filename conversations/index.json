@@ -1,0 +1,30 @@
+{
+  "conversations": [
+    {
+      "id": "9786cb84-96a0-4221-bc2e-50a10e7377b2",
+      "created_at": 1743143148.3609257,
+      "updated_at": 1743143148.3609266
+    },
+    {
+      "id": "17d736c4-4a83-4a36-b4c3-d2e56e927205",
+      "created_at": 1743143196.1920545,
+      "updated_at": 1743143196.192055
+    },
+    {
+      "id": "880ee1d1-1cc0-4583-8155-e57ce784db49",
+      "created_at": 1743143196.2776659,
+      "updated_at": 1743143300.6637208
+    },
+    {
+      "id": "93f0569f-b421-45a7-aba1-52082bacb1c3",
+      "created_at": 1743143318.0215104,
+      "updated_at": 1743143318.0215108
+    },
+    {
+      "id": "fc9d5cfb-0ed8-4aa6-8358-9921a635fcad",
+      "created_at": 1743143318.120999,
+      "updated_at": 1743143318.1209993
+    }
+  ],
+  "current_conversation_id": "fc9d5cfb-0ed8-4aa6-8358-9921a635fcad"
+}

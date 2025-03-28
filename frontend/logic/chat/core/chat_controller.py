@@ -57,6 +57,10 @@ class ChatController(QObject):
         self.tts_controller = TTSController(parent)
         self.service_manager = ServiceManager()
         
+        # Always start with a fresh conversation when the app loads
+        self.chat_history_manager.new_conversation()
+        logger.info("[ChatController] Started a fresh conversation")
+        
         # Initialize settings from settings manager
         auto_send_enabled = self.settings_manager.get_auto_send()
         self.speech_manager.set_auto_send(auto_send_enabled)
@@ -275,6 +279,12 @@ class ChatController(QObject):
         """Clear the chat history"""
         logger.info("[ChatController] Clearing chat history.")
         self.chat_history_manager.clear_history()
+        
+    @Slot()
+    def newConversation(self):
+        """Start a new conversation"""
+        logger.info("[ChatController] Starting a new conversation.")
+        self.chat_history_manager.new_conversation()
 
     @Slot(bool)
     def setAutoSend(self, enabled):

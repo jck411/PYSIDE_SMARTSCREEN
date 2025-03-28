@@ -1,0 +1,27 @@
+{
+  "id": "880ee1d1-1cc0-4583-8155-e57ce784db49",
+  "created_at": 1743143196.2776659,
+  "updated_at": 1743143300.6637208,
+  "messages": [
+    {
+      "sender": "user",
+      "text": "hello",
+      "timestamp": 1743143300.6513126
+    },
+    {
+      "sender": "assistant",
+      "text": "Oh, hey there! How's it going?",
+      "timestamp": 1743143300.6589613
+    },
+    {
+      "sender": "user",
+      "text": "goong good my name is Jack",
+      "timestamp": 1743143300.6612997
+    },
+    {
+      "sender": "assistant",
+      "text": "Nice to meet you, Jack! What can I do for you today?",
+      "timestamp": 1743143300.6637166
+    }
+  ]
+}
