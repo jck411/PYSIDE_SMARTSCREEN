@@ -167,14 +167,10 @@ class ChatHistoryManager(QObject):
         conversation["messages"] = []
         conversation["updated_at"] = time.time()
         
-        # Also ensure we clear the legacy messages array in chat.messages
-        # This is crucial to prevent old messages from reappearing
-        self._settings_manager.set_setting("chat", "messages", [])
-        
         # Save the updated conversation data
         self._save_to_settings()
         
-        logger.info("[ChatHistoryManager] Cleared all chat history from both storage locations")
+        logger.info("[ChatHistoryManager] Cleared all chat history")
         self.historyChanged.emit()
     
     def _is_similar(self, text1: str, text2: str) -> bool:
@@ -194,6 +190,23 @@ class ChatHistoryManager(QObject):
         similarity = len(common_words) / max(len(words1), len(words2))
         
         return similarity > 0.7
+        
+    def reset_all_history(self) -> None:
+        """
+        Completely reset all chat history and create a new conversation.
+        """
+        # Reset conversations list and current ID
+        self._conversations = []
+        self._current_conversation_id = None
+        
+        # Reset history data structure
+        self._settings_manager.set_setting("chat", "history", {})
+        
+        # Create a new conversation
+        self._create_new_conversation()
+        
+        logger.info("[ChatHistoryManager] Reset all chat history completely")
+        self.historyChanged.emit()
 
 # Singleton instance
 _chat_history_manager = None
