@@ -1,0 +1,17 @@
+{
+  "id": "74fccda3-37ac-447e-9f49-f2dbb2d2ec8a",
+  "created_at": 1743156331.8217292,
+  "updated_at": 1743156346.025907,
+  "messages": [
+    {
+      "sender": "user",
+      "text": "Testing.",
+      "timestamp": 1743156346.0249398
+    },
+    {
+      "sender": "assistant",
+      "text": "Testing, huh? Exciting stuff! What\u2019s next?",
+      "timestamp": 1743156346.0259056
+    }
+  ]
+}
