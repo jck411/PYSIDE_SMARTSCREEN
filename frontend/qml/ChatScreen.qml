@@ -19,9 +19,42 @@ Item {
     
     // Initialize settings when screen becomes visible
     onVisibleChanged: {
+        console.log("ChatScreen visibility changed to:", visible);
+        
         if (visible && chatLogic) {
-            // Let chatLogic initialize from its controller's settings
-            // No need to set it from here
+            console.log("ChatScreen became visible, loading history...");
+            // Load chat history from backend
+            try {
+                console.log("Calling chatLogic.getChatHistory()...");
+                var history = chatLogic.getChatHistory();
+                console.log("Got history from backend, length:", history ? history.length : 0);
+                
+                if (history && history.length > 0) {
+                    // Clear the model first to avoid duplicates
+                    chatModel.clear();
+                    console.log("Cleared chat model");
+                    
+                    // Add each message to the model
+                    for (var i = 0; i < history.length; i++) {
+                        console.log("Processing message:", i, 
+                            "isUser:", history[i].isUser, 
+                            "text:", history[i].text.substring(0, 30) + "...");
+                        
+                        chatModel.append(history[i]);
+                        console.log("Added message to model:", i);
+                    }
+                    
+                    // Scroll to the end
+                    chatView.positionViewAtEnd();
+                    console.log("Chat history loaded successfully, messages:", chatModel.count);
+                } else {
+                    console.log("No history to load or history is empty");
+                }
+            } catch (e) {
+                console.error("Error loading chat history:", e, "Stack:", e.stack);
+            }
+        } else {
+            console.log("ChatScreen not visible or chatLogic not available");
         }
     }
     

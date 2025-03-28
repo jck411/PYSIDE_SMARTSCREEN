@@ -3,6 +3,7 @@ import logging
 from PySide6.QtCore import QObject, Signal
 
 from frontend.config import logger
+from frontend.settings_manager import get_settings_manager
 
 class MessageHandler(QObject):
     """
@@ -14,11 +15,25 @@ class MessageHandler(QObject):
 
     def __init__(self, parent=None):
         super().__init__(parent)
+        self._settings_manager = get_settings_manager()
         self._messages = []
         self._current_response = ""  # Track the current response text
         self._interrupted_response = ""  # Track interrupted response for continuity
         self._last_request_messages = []  # Track messages from last request
-        logger.info("[MessageHandler] Initialized")
+        
+        # Load messages from settings
+        self._load_messages_from_settings()
+        logger.info("[MessageHandler] Initialized with messages from settings")
+        
+    def _load_messages_from_settings(self):
+        """Load messages from settings manager"""
+        try:
+            stored_messages = self._settings_manager.get_chat_messages()
+            if stored_messages:
+                self._messages = stored_messages
+                logger.info(f"[MessageHandler] Loaded {len(self._messages)} messages from settings")
+        except Exception as e:
+            logger.error(f"[MessageHandler] Error loading messages from settings: {e}")
 
     def process_message(self, data):
         """
@@ -46,6 +61,7 @@ class MessageHandler(QObject):
                 self.messageChunkReceived.emit(self._current_response, True)
                 if self._current_response.strip():
                     self.add_message("assistant", self._current_response)
+                    logger.info(f"[MessageHandler] Saved final assistant message: {self._current_response[:30]}...")
                 # Clear interrupted response since we've completed normally
                 self._interrupted_response = ""
                 self._current_response = ""
@@ -58,6 +74,7 @@ class MessageHandler(QObject):
                 self._current_response = ""
                 if content.strip():
                     self.add_message("assistant", content)
+                    logger.info(f"[MessageHandler] Saved complete assistant message: {content[:30]}...")
                 logger.info("[MessageHandler] Received complete message")
             
             return True
@@ -72,8 +89,15 @@ class MessageHandler(QObject):
             text: The message content
         """
         if text.strip():
-            self._messages.append({"sender": sender, "text": text})
-            logger.info(f"[MessageHandler] Added message from {sender}, length: {len(text)}")
+            message = {"sender": sender, "text": text}
+            self._messages.append(message)
+            
+            # Save to settings
+            try:
+                self._settings_manager.add_chat_message(message)
+                logger.info(f"[MessageHandler] Added and saved message from {sender}, length: {len(text)}")
+            except Exception as e:
+                logger.error(f"[MessageHandler] Error saving message to settings: {e}")
 
     def get_messages(self):
         """
@@ -139,6 +163,13 @@ class MessageHandler(QObject):
         self._current_response = ""
         self._interrupted_response = ""
         self._last_request_messages = []
+        
+        # Clear messages in settings
+        try:
+            self._settings_manager.clear_chat_messages()
+            logger.info("[MessageHandler] Cleared chat messages in settings")
+        except Exception as e:
+            logger.error(f"[MessageHandler] Error clearing messages in settings: {e}")
 
     def reset_current_response(self):
         """
@@ -155,3 +186,67 @@ class MessageHandler(QObject):
         prev_len = len(self._interrupted_response)
         self._interrupted_response = ""
         logger.info(f"[MessageHandler] Cleared interrupted response. Previous length: {prev_len}")
+        
+    def get_messages_for_qml(self):
+        """
+        Get messages formatted for QML ListView model.
+        
+        Returns:
+            List of dictionaries with 'text' and 'isUser' keys for QML
+        """
+        logger.info(f"[MessageHandler] Current message count: {len(self._messages)}")
+        
+        # Debug log the first few messages
+        for i, msg in enumerate(self._messages[:3]):
+            logger.info(f"[MessageHandler] Message {i}: sender={msg['sender']}, text={msg['text'][:30]}...")
+        
+        # Filter out duplicate messages
+        filtered_messages = []
+        seen_texts = set()
+        
+        # First pass: collect all user messages and unique assistant messages
+        for msg in self._messages:
+            if msg["sender"] == "user":
+                # Always keep user messages
+                filtered_messages.append(msg)
+                seen_texts.add(msg["text"])
+            else:
+                # For assistant messages, only keep if we haven't seen similar text
+                is_duplicate = False
+                for seen_text in seen_texts:
+                    if self._is_similar(msg["text"], seen_text):
+                        is_duplicate = True
+                        break
+                
+                if not is_duplicate:
+                    filtered_messages.append(msg)
+                    seen_texts.add(msg["text"])
+        
+        # Convert to QML format
+        qml_messages = []
+        for msg in filtered_messages:
+            qml_messages.append({
+                "text": msg["text"],
+                "isUser": msg["sender"] == "user"
+            })
+            
+        logger.info(f"[MessageHandler] Returning {len(qml_messages)} messages for QML (filtered from {len(self._messages)})")
+        return qml_messages
+        
+    def _is_similar(self, text1, text2):
+        """Check if two texts are similar"""
+        # If one is a substring of the other, they're similar
+        if text1 in text2 or text2 in text1:
+            return True
+            
+        # If they share a lot of words, they're similar
+        words1 = set(text1.lower().split())
+        words2 = set(text2.lower().split())
+        
+        if not words1 or not words2:
+            return False
+            
+        common_words = words1.intersection(words2)
+        similarity = len(common_words) / max(len(words1), len(words2))
+        
+        return similarity > 0.7

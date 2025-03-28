@@ -91,6 +91,19 @@ class ChatLogic(QObject):
     def isAutoSendEnabled(self):
         """Get the current auto-send setting"""
         return self.controller.isAutoSendEnabled()
+        
+    @Slot(result='QVariantList')
+    def getChatHistory(self):
+        """Get chat history formatted for QML"""
+        logger.info("[ChatLogic] getChatHistory called from QML")
+        result = self.controller.getChatMessagesForQml()
+        
+        # Log more details about the messages
+        logger.info(f"[ChatLogic] Returning {len(result)} messages to QML")
+        for i, msg in enumerate(result[:3]):  # Log first 3 messages
+            logger.info(f"[ChatLogic] Message {i}: isUser={msg['isUser']}, text={msg['text'][:30]}...")
+            
+        return result
 
     def getConnected(self):
         """Get connection status from controller"""

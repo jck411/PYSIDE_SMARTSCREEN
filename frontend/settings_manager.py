@@ -19,6 +19,13 @@ class SettingsManager(QObject):
         self._settings_file = Path.home() / ".smartscreen_settings.json"
         self._load_settings()
         
+        # Initialize chat history if not present
+        if "chat" not in self._settings:
+            self._settings["chat"] = {
+                "messages": []
+            }
+            self._save_settings()
+        
     def _load_settings(self):
         """Load settings from file"""
         try:
@@ -108,6 +115,79 @@ class SettingsManager(QObject):
     def set_theme(self, theme):
         """Set the UI theme setting"""
         self.set_setting("ui", "theme", theme)
+        
+    def get_chat_messages(self):
+        """Get the chat message history"""
+        return self.get_setting("chat", "messages", [])
+    
+    def set_chat_messages(self, messages):
+        """Set the chat message history"""
+        self.set_setting("chat", "messages", messages)
+    
+    def add_chat_message(self, message):
+        """Add a message to the chat history"""
+        messages = self.get_chat_messages()
+        
+        # Check for duplicates - if this is an assistant message that's very similar to the last one, replace it
+        if messages and message["sender"] == "assistant" and len(messages) > 0:
+            # Check the last few messages for duplicates or similar messages
+            for i in range(len(messages) - 1, max(len(messages) - 4, -1), -1):
+                existing_msg = messages[i]
+                if existing_msg["sender"] == "assistant":
+                    # If the new message starts with the old one or is very similar, replace it
+                    if (message["text"].startswith(existing_msg["text"][:10]) or 
+                        existing_msg["text"].startswith(message["text"][:10]) or
+                        self._similarity_score(message["text"], existing_msg["text"]) > 0.7):
+                        logger.info(f"[SettingsManager] Replacing similar assistant message at index {i}")
+                        messages[i] = message
+                        
+                        # Remove any other assistant messages that might be duplicates
+                        # (only keep the most recent user message and this assistant message)
+                        last_user_index = -1
+                        for j in range(len(messages) - 1, i, -1):
+                            if messages[j]["sender"] == "user":
+                                last_user_index = j
+                                break
+                        
+                        if last_user_index > i:
+                            # Keep the user message and remove everything between it and this assistant message
+                            new_messages = messages[:i+1] + [messages[last_user_index]] + messages[last_user_index+1:]
+                            messages = new_messages
+                        else:
+                            # Just remove any assistant messages after this one
+                            new_messages = []
+                            for j in range(len(messages)):
+                                if j > i and messages[j]["sender"] == "assistant":
+                                    continue
+                                new_messages.append(messages[j])
+                            messages = new_messages
+                        
+                        self.set_chat_messages(messages)
+                        return
+        
+        # Otherwise, append as normal
+        messages.append(message)
+        self.set_chat_messages(messages)
+        
+    def _similarity_score(self, text1, text2):
+        """Calculate a simple similarity score between two texts"""
+        # Simple implementation - just check if one contains the other
+        if text1 in text2 or text2 in text1:
+            return 0.9
+        
+        # Check for common words
+        words1 = set(text1.lower().split())
+        words2 = set(text2.lower().split())
+        common_words = words1.intersection(words2)
+        
+        if not words1 or not words2:
+            return 0.0
+            
+        return len(common_words) / max(len(words1), len(words2))
+        
+    def clear_chat_messages(self):
+        """Clear the chat message history"""
+        self.set_chat_messages([])
 
 # Create singleton instance
 _settings_manager = None

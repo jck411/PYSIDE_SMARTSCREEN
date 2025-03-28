@@ -1,4 +1,4 @@
-The persistent settings issue has been fixed, with the application now correctly saving and loading settings when switching between screens. Here's an explanation of why we had these issues and what to look out for when implementing more settings in the future:
+
 
 Why We Had Issues
 Python-QML Interface Mismatch:

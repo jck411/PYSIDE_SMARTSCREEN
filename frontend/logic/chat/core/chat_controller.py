@@ -11,6 +11,7 @@ from frontend.logic.audio_manager import AudioManager
 from frontend.logic.websocket_client import WebSocketClient
 from frontend.logic.speech_manager import SpeechManager
 from frontend.logic.chat.handlers.message_handler import MessageHandler
+from frontend.logic.chat.history import get_chat_history_manager
 from frontend.logic.voice.wake_word_handler import WakeWordHandler
 from frontend.logic.tts_controller import TTSController
 from frontend.logic.task_manager import TaskManager
@@ -51,6 +52,7 @@ class ChatController(QObject):
         self.audio_manager = AudioManager()
         self.speech_manager = SpeechManager()
         self.message_handler = MessageHandler()
+        self.chat_history_manager = get_chat_history_manager()
         self.websocket_client = WebSocketClient()
         self.tts_controller = TTSController(parent)
         self.service_manager = ServiceManager()
@@ -119,6 +121,12 @@ class ChatController(QObject):
         """Process incoming WebSocket messages"""
         msg_type = data.get("type")
         
+        # Log all incoming messages for debugging
+        logger.info(f"[ChatController] Received WebSocket message: {msg_type}")
+        if "content" in data:
+            content_preview = data["content"][:50] + "..." if len(data.get("content", "")) > 50 else data.get("content", "")
+            logger.info(f"[ChatController] Message content: {content_preview}")
+        
         if msg_type == "stt":
             stt_text = data.get("stt_text", "")
             logger.debug(f"[ChatController] Processing STT text immediately: {stt_text}")
@@ -128,8 +136,29 @@ class ChatController(QObject):
             logger.debug(f"[ChatController] Updating STT state: listening = {is_listening}")
             self.sttStateChanged.emit(is_listening)
         else:
-            # Try to process as a message
-            self.message_handler.process_message(data)
+            # Process the message through the message handler for streaming
+            result = self.message_handler.process_message(data)
+            logger.info(f"[ChatController] Message processed: {result}")
+            
+            # If this is a final message or a complete message, save it to chat history
+            if data.get("is_final", False) or (not data.get("is_chunk", False) and "content" in data):
+                # This is a complete message, make sure to save it
+                logger.info(f"[ChatController] Detected complete message, ensuring it's saved")
+                if "content" in data and data["content"].strip():
+                    # Save the complete message to chat history
+                    self.chat_history_manager.add_message("assistant", data["content"])
+                    logger.info(f"[ChatController] Saved complete assistant message: {data['content'][:30]}...")
+            
+            # If this is a message with punctuation at the end, it might be a complete thought
+            elif "content" in data and data["content"].strip():
+                content = data["content"].strip()
+                if content.endswith(".") or content.endswith("!") or content.endswith("?"):
+                    # Save the current accumulated response
+                    current_response = self.message_handler.get_current_response()
+                    if current_response.strip():
+                        logger.info(f"[ChatController] Detected end of thought, saving current response")
+                        self.chat_history_manager.add_message("assistant", current_response)
+                        logger.info(f"[ChatController] Saved assistant message: {current_response[:30]}...")
 
     def _handle_audio_data_signal(self, audio_data):
         """
@@ -171,8 +200,8 @@ class ChatController(QObject):
         # Check if we have an interrupted response that needs to be continued
         has_interrupted = self.message_handler.has_interrupted_response()
         
-        # Add message to history
-        self.message_handler.add_message("user", text)
+        # Add message to chat history
+        self.chat_history_manager.add_message("user", text)
         
         # If there's interrupted content, we want to continue from where we left off
         # instead of resetting the current response
@@ -192,7 +221,7 @@ class ChatController(QObject):
         # Prepare payload
         payload = {
             "action": "chat",
-            "messages": self.message_handler.get_messages()
+            "messages": self.chat_history_manager.get_messages()
         }
         
         # If we're continuing from an interrupted response, tell the server
@@ -245,7 +274,7 @@ class ChatController(QObject):
     def clearChat(self):
         """Clear the chat history"""
         logger.info("[ChatController] Clearing chat history.")
-        self.message_handler.clear_history()
+        self.chat_history_manager.clear_history()
 
     @Slot(bool)
     def setAutoSend(self, enabled):
@@ -263,6 +292,10 @@ class ChatController(QObject):
     def isAutoSendEnabled(self):
         """Get the current auto-send setting"""
         return self.speech_manager.is_auto_send_enabled()
+        
+    def getChatMessagesForQml(self):
+        """Get chat messages formatted for QML"""
+        return self.chat_history_manager.get_messages_for_qml()
 
     def getConnected(self):
         """Get the connection status for Property binding"""

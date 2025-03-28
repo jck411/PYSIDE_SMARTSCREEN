@@ -41,8 +41,8 @@ Window {
                     
                     // Handle component loading status
                     onStatusChanged: {
-                        if (status === Loader.Ready && item) {
-                            item.screen = stackView.currentItem
+                        if (status === Loader.Ready && item && currentScreen) {
+                            item.screen = currentScreen
                         }
                     }
                 }
@@ -59,11 +59,11 @@ Window {
                     Layout.preferredHeight: 40
                     background: Rectangle {
                         color: "transparent"
-                        border.color: stackView.currentItem.toString().includes("ChatScreen") ? ThemeManager.button_primary_color : "transparent"
+                        border.color: screenContainer.currentScreenName === "ChatScreen" ? ThemeManager.button_primary_color : "transparent"
                         border.width: 2
                         radius: 5
                     }
-                    onClicked: stackView.replace("ChatScreen.qml")
+                    onClicked: screenContainer.currentScreenName = "ChatScreen"
                     
                     Image {
                         anchors.centerIn: parent
@@ -81,11 +81,11 @@ Window {
                     Layout.preferredHeight: 40
                     background: Rectangle {
                         color: "transparent"
-                        border.color: stackView.currentItem.toString().includes("WeatherScreen") ? ThemeManager.button_primary_color : "transparent"
+                        border.color: screenContainer.currentScreenName === "WeatherScreen" ? ThemeManager.button_primary_color : "transparent"
                         border.width: 2
                         radius: 5
                     }
-                    onClicked: stackView.replace("WeatherScreen.qml")
+                    onClicked: screenContainer.currentScreenName = "WeatherScreen"
                     
                     Image {
                         anchors.centerIn: parent
@@ -103,11 +103,11 @@ Window {
                     Layout.preferredHeight: 40
                     background: Rectangle {
                         color: "transparent"
-                        border.color: stackView.currentItem.toString().includes("CalendarScreen") ? ThemeManager.button_primary_color : "transparent"
+                        border.color: screenContainer.currentScreenName === "CalendarScreen" ? ThemeManager.button_primary_color : "transparent"
                         border.width: 2
                         radius: 5
                     }
-                    onClicked: stackView.replace("CalendarScreen.qml")
+                    onClicked: screenContainer.currentScreenName = "CalendarScreen"
                     
                     Image {
                         anchors.centerIn: parent
@@ -125,11 +125,11 @@ Window {
                     Layout.preferredHeight: 40
                     background: Rectangle {
                         color: "transparent"
-                        border.color: stackView.currentItem.toString().includes("ClockScreen") ? ThemeManager.button_primary_color : "transparent"
+                        border.color: screenContainer.currentScreenName === "ClockScreen" ? ThemeManager.button_primary_color : "transparent"
                         border.width: 2
                         radius: 5
                     }
-                    onClicked: stackView.replace("ClockScreen.qml")
+                    onClicked: screenContainer.currentScreenName = "ClockScreen"
                     
                     Image {
                         anchors.centerIn: parent
@@ -147,11 +147,11 @@ Window {
                     Layout.preferredHeight: 40
                     background: Rectangle {
                         color: "transparent"
-                        border.color: stackView.currentItem.toString().includes("PhotoScreen") ? ThemeManager.button_primary_color : "transparent"
+                        border.color: screenContainer.currentScreenName === "PhotoScreen" ? ThemeManager.button_primary_color : "transparent"
                         border.width: 2
                         radius: 5
                     }
-                    onClicked: stackView.replace("PhotoScreen.qml")
+                    onClicked: screenContainer.currentScreenName = "PhotoScreen"
                     
                     Image {
                         anchors.centerIn: parent
@@ -192,11 +192,11 @@ Window {
                     Layout.preferredHeight: 40
                     background: Rectangle {
                         color: "transparent"
-                        border.color: stackView.currentItem.toString().includes("SettingsScreen") ? ThemeManager.button_primary_color : "transparent"
+                        border.color: screenContainer.currentScreenName === "SettingsScreen" ? ThemeManager.button_primary_color : "transparent"
                         border.width: 2
                         radius: 5
                     }
-                    onClicked: stackView.replace("SettingsScreen.qml")
+                    onClicked: screenContainer.currentScreenName = "SettingsScreen"
                     
                     Image {
                         anchors.centerIn: parent
@@ -213,21 +213,95 @@ Window {
             }
         }
         
-        StackView {
-            id: stackView
+        // Container for all screens
+        Item {
+            id: screenContainer
             Layout.fillWidth: true
             Layout.fillHeight: true
-            initialItem: "ChatScreen.qml"
             
-            onCurrentItemChanged: {
-                currentScreen = currentItem
+            // Property to track current screen name
+            property string currentScreenName: "ChatScreen"
+            
+            // Load all screens at startup but keep them hidden
+            ChatScreen {
+                id: chatScreen
+                anchors.fill: parent
+                visible: screenContainer.currentScreenName === "ChatScreen"
+            }
+            
+            WeatherScreen {
+                id: weatherScreen
+                anchors.fill: parent
+                visible: screenContainer.currentScreenName === "WeatherScreen"
+            }
+            
+            CalendarScreen {
+                id: calendarScreen
+                anchors.fill: parent
+                visible: screenContainer.currentScreenName === "CalendarScreen"
+            }
+            
+            ClockScreen {
+                id: clockScreen
+                anchors.fill: parent
+                visible: screenContainer.currentScreenName === "ClockScreen"
+            }
+            
+            PhotoScreen {
+                id: photoScreen
+                anchors.fill: parent
+                visible: screenContainer.currentScreenName === "PhotoScreen"
+            }
+            
+            SettingsScreen {
+                id: settingsScreen
+                anchors.fill: parent
+                visible: screenContainer.currentScreenName === "SettingsScreen"
+            }
+            
+            // Update current screen reference and load controls
+            onCurrentScreenNameChanged: {
+                console.log("Switching to screen:", currentScreenName);
                 
-                // Only load controls after current item is fully loaded
-                if (currentItem && currentItem.screenControls) {
+                // Update current screen reference
+                switch(currentScreenName) {
+                    case "ChatScreen":
+                        currentScreen = chatScreen;
+                        break;
+                    case "WeatherScreen":
+                        currentScreen = weatherScreen;
+                        break;
+                    case "CalendarScreen":
+                        currentScreen = calendarScreen;
+                        break;
+                    case "ClockScreen":
+                        currentScreen = clockScreen;
+                        break;
+                    case "PhotoScreen":
+                        currentScreen = photoScreen;
+                        break;
+                    case "SettingsScreen":
+                        currentScreen = settingsScreen;
+                        break;
+                }
+                
+                // Load screen-specific controls
+                if (currentScreen && currentScreen.screenControls) {
                     // First clear the old component
-                    screenControlsLoader.source = ""
+                    screenControlsLoader.source = "";
                     // Then load the new one
-                    screenControlsLoader.source = currentItem.screenControls
+                    screenControlsLoader.source = currentScreen.screenControls;
+                }
+            }
+            
+            // Initialize with chat screen and load controls
+            Component.onCompleted: {
+                currentScreen = chatScreen;
+                
+                // Explicitly load the chat controls on startup
+                if (currentScreen && currentScreen.screenControls) {
+                    console.log("Loading initial controls:", currentScreen.screenControls);
+                    screenControlsLoader.source = currentScreen.screenControls;
                 }
             }
         }
