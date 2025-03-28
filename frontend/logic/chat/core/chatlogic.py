@@ -115,5 +115,21 @@ class ChatLogic(QObject):
         """Delegate cleanup to controller"""
         self.controller.cleanup()
 
+    @Slot('QVariantList')
+    def saveChatState(self, messages):
+        """Save the current chat view state from QML"""
+        logger.info(f"[ChatLogic] saveChatState called with {len(messages)} messages")
+        
+        # Clear existing history first to avoid any duplication
+        self.controller.clearChat()
+        
+        # Add each message from the current view
+        for msg in messages:
+            sender = "user" if msg["isUser"] else "assistant"
+            self.controller.chat_history_manager.add_message(sender, msg["text"])
+            
+        logger.info(f"[ChatLogic] Chat state saved successfully")
+        return True
+
 # For backward compatibility with any code that might use QueueAudioDevice directly
 from frontend.logic.audio_manager import QueueAudioDevice

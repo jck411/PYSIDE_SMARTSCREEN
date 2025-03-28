@@ -149,30 +149,15 @@ class ChatHistoryManager(QObject):
         """
         raw_messages = self.get_messages()
         
-        # Filter out duplicate messages
-        filtered_messages = []
-        last_user_msg_idx = -1
-        
-        # First pass: find user messages and keep track of their positions
-        for i, msg in enumerate(raw_messages):
-            if msg["sender"] == "user":
-                filtered_messages.append(msg)
-                last_user_msg_idx = len(filtered_messages) - 1
-            elif last_user_msg_idx >= 0:
-                # For each user message, find the best assistant response that follows it
-                # and add only that one
-                if i == len(raw_messages) - 1 or raw_messages[i+1]["sender"] == "user":
-                    filtered_messages.append(msg)
-        
-        # Convert to QML format
+        # Simply convert to QML format without complex filtering
         qml_messages = []
-        for msg in filtered_messages:
+        for msg in raw_messages:
             qml_messages.append({
                 "text": msg["text"],
                 "isUser": msg["sender"] == "user"
             })
         
-        logger.info(f"[ChatHistoryManager] Returning {len(qml_messages)} messages for QML (filtered from {len(raw_messages)})")
+        logger.info(f"[ChatHistoryManager] Returning {len(qml_messages)} messages for QML")
         return qml_messages
     
     def clear_history(self) -> None:

@@ -196,41 +196,15 @@ class MessageHandler(QObject):
         """
         logger.info(f"[MessageHandler] Current message count: {len(self._messages)}")
         
-        # Debug log the first few messages
-        for i, msg in enumerate(self._messages[:3]):
-            logger.info(f"[MessageHandler] Message {i}: sender={msg['sender']}, text={msg['text'][:30]}...")
-        
-        # Filter out duplicate messages
-        filtered_messages = []
-        seen_texts = set()
-        
-        # First pass: collect all user messages and unique assistant messages
-        for msg in self._messages:
-            if msg["sender"] == "user":
-                # Always keep user messages
-                filtered_messages.append(msg)
-                seen_texts.add(msg["text"])
-            else:
-                # For assistant messages, only keep if we haven't seen similar text
-                is_duplicate = False
-                for seen_text in seen_texts:
-                    if self._is_similar(msg["text"], seen_text):
-                        is_duplicate = True
-                        break
-                
-                if not is_duplicate:
-                    filtered_messages.append(msg)
-                    seen_texts.add(msg["text"])
-        
-        # Convert to QML format
+        # Simply convert to QML format without filtering
         qml_messages = []
-        for msg in filtered_messages:
+        for msg in self._messages:
             qml_messages.append({
                 "text": msg["text"],
                 "isUser": msg["sender"] == "user"
             })
             
-        logger.info(f"[MessageHandler] Returning {len(qml_messages)} messages for QML (filtered from {len(self._messages)})")
+        logger.info(f"[MessageHandler] Returning {len(qml_messages)} messages for QML")
         return qml_messages
         
     def _is_similar(self, text1, text2):

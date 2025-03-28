@@ -53,8 +53,21 @@ Item {
             } catch (e) {
                 console.error("Error loading chat history:", e, "Stack:", e.stack);
             }
-        } else {
-            console.log("ChatScreen not visible or chatLogic not available");
+        } else if (!visible && chatLogic && chatModel.count > 0) {
+            // Save what's currently in the view when navigating away
+            console.log("ChatScreen becoming invisible, saving current view state...");
+            var currentMessages = [];
+            
+            for (var i = 0; i < chatModel.count; i++) {
+                currentMessages.push({
+                    "text": chatModel.get(i).text,
+                    "isUser": chatModel.get(i).isUser
+                });
+            }
+            
+            // Save to backend using new method
+            chatLogic.saveChatState(currentMessages);
+            console.log("Saved current chat state with", currentMessages.length, "messages");
         }
     }
     
@@ -133,8 +146,8 @@ Item {
                         radius: 8
                         height: contentLabel.paintedHeight + 16
                         
-                        anchors.right: model.isUser ? parent.right : undefined
-                        anchors.left: model.isUser ? undefined : parent.left
+                        anchors.right: model.isUser && parent ? parent.right : undefined
+                        anchors.left: !model.isUser && parent ? parent.left : undefined
                         anchors.rightMargin: model.isUser ? 8 : 0
                         anchors.leftMargin: model.isUser ? 0 : 8
                         
