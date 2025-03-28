@@ -162,12 +162,19 @@ class ChatHistoryManager(QObject):
     
     def clear_history(self) -> None:
         """Clear the current conversation history"""
+        # Clear the current conversation messages
         conversation = self._get_current_conversation()
         conversation["messages"] = []
         conversation["updated_at"] = time.time()
+        
+        # Also ensure we clear the legacy messages array in chat.messages
+        # This is crucial to prevent old messages from reappearing
+        self._settings_manager.set_setting("chat", "messages", [])
+        
+        # Save the updated conversation data
         self._save_to_settings()
         
-        logger.info("[ChatHistoryManager] Cleared conversation history")
+        logger.info("[ChatHistoryManager] Cleared all chat history from both storage locations")
         self.historyChanged.emit()
     
     def _is_similar(self, text1: str, text2: str) -> bool:
