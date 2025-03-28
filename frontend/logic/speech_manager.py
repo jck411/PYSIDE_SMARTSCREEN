@@ -32,7 +32,13 @@ class SpeechManager(QObject):
 
         # Configure initial auto-send state from settings
         auto_send_enabled = self.settings_manager.get_auto_send()
+        logger.info(f"[SpeechManager] Setting initial auto-send value from settings: {auto_send_enabled}")
+        
+        # Force the value to be the one from settings
+        self.frontend_stt.auto_send = auto_send_enabled
+        # Also call set_auto_send to ensure any side effects happen
         self.frontend_stt.set_auto_send(auto_send_enabled)
+        
         logger.info(f"[SpeechManager] Initialized with auto-send: {auto_send_enabled}")
 
         # Connect to STT signals
@@ -70,8 +76,12 @@ class SpeechManager(QObject):
     def handle_auto_send_text(self, text):
         """Handle auto-send text"""
         if text.strip():
-            logger.info(f"[SpeechManager] Auto-send utterance: {text}")
-            self.sttAutoSubmitText.emit(text)
+            # Double check that auto-send is still enabled
+            if self.is_auto_send_enabled():
+                logger.info(f"[SpeechManager] Auto-send utterance: {text}")
+                self.sttAutoSubmitText.emit(text)
+            else:
+                logger.warning(f"[SpeechManager] Received auto-send utterance but auto-send is disabled. Ignoring.")
 
     @Slot()
     def toggle_stt(self):
@@ -107,14 +117,30 @@ class SpeechManager(QObject):
     @Slot(bool)
     def set_auto_send(self, enabled):
         """Enable or disable automatic sending of transcribed text to chat"""
-        self.frontend_stt.set_auto_send(enabled)
-        # Save setting to make it persistent
+        # First update the setting in settings manager for persistence
         self.settings_manager.set_auto_send(enabled)
+        
+        # Then set the value in the frontend_stt
+        prev_value = self.frontend_stt.auto_send
+        self.frontend_stt.set_auto_send(enabled)
+        
+        # Double-check the value was properly set
+        actual_value = self.frontend_stt.get_auto_send()
+        logger.info(f"[SpeechManager] Auto-send set from {prev_value} to {enabled}, actual value after set: {actual_value}")
+        
+        if actual_value != enabled:
+            logger.warning(f"[SpeechManager] Auto-send value mismatch after set! Expected: {enabled}, Actual: {actual_value}")
+            # Force the value directly as a fallback
+            self.frontend_stt.auto_send = enabled
+            logger.info(f"[SpeechManager] Forced auto-send value to: {enabled}")
+            
         logger.info(f"[SpeechManager] Auto-send {'enabled' if enabled else 'disabled'}")
 
     def is_auto_send_enabled(self):
         """Returns whether auto-send is currently enabled"""
-        return self.frontend_stt.get_auto_send()
+        result = self.frontend_stt.get_auto_send()
+        logger.info(f"[SpeechManager] is_auto_send_enabled called, returning: {result}")
+        return result
 
     def cleanup(self):
         """Clean up resources"""

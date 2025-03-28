@@ -37,7 +37,23 @@ class DeepgramSTT(QObject):
         self.is_finals = []
         self.keepalive_active = False
         self.use_keepalive = STT_CONFIG.get('use_keepalive', True)
-        self.auto_send = STT_CONFIG.get('auto_send', False)
+        
+        # Initialize with a default value, will be properly set by settings_manager
+        self.auto_send = False  # Explicitly set to False to avoid using potentially incorrect config value
+        
+        try:
+            # Try to get the value from settings manager at init time
+            from frontend.settings_manager import get_settings_manager
+            settings_manager = get_settings_manager()
+            settings_auto_send = settings_manager.get_auto_send()
+            self.auto_send = settings_auto_send
+            logging.info(f"DeepgramSTT initialized with auto_send={self.auto_send} from settings")
+        except Exception as e:
+            logging.warning(f"Could not get auto_send from settings during initialization: {e}")
+            # Fall back to config value only if we can't get from settings
+            self.auto_send = STT_CONFIG.get('auto_send', False)
+            logging.info(f"DeepgramSTT initialized with auto_send={self.auto_send} from config")
+        
         # Create a dedicated event loop for Deepgram tasks and run it in a separate thread.
         self.dg_loop = asyncio.new_event_loop()
         self.dg_thread = threading.Thread(target=self._run_dg_loop, daemon=True)
@@ -112,10 +128,26 @@ class DeepgramSTT(QObject):
                 logging.info("[UTTERANCE INFO] Segments combined: %d", len(self.is_finals))
                 self.complete_utterance_received.emit(utterance)
                 
+                # Double-check current auto_send setting
+                from frontend.settings_manager import get_settings_manager
+                try:
+                    settings_manager = get_settings_manager()
+                    settings_auto_send = settings_manager.get_auto_send()
+                    if self.auto_send != settings_auto_send:
+                        logging.warning(f"Auto-send value mismatch! DeepgramSTT: {self.auto_send}, Settings: {settings_auto_send}")
+                        logging.info(f"Updating auto_send to match settings: {settings_auto_send}")
+                        self.auto_send = settings_auto_send
+                except Exception as e:
+                    logging.warning(f"Error checking settings auto_send: {e}")
+                    
                 # Auto-send the utterance to chat if enabled
                 if self.auto_send and utterance.strip():
-                    logging.info("[AUTO SEND] Sending utterance to chat: %s", utterance)
+                    logging.info("[AUTO SEND] Auto-send is enabled. Sending utterance to chat: %s", utterance)
+                    # Make sure we emit this signal to trigger the auto-send chain
                     self.auto_send_utterance.emit(utterance)
+                else:
+                    logging.info("[AUTO SEND] Auto-send is disabled (value=%s). Not sending: %s", 
+                                self.auto_send, utterance[:30] + "..." if len(utterance) > 30 else utterance)
                 
                 self.is_finals = []
             else:
@@ -124,6 +156,15 @@ class DeepgramSTT(QObject):
 
     async def _async_start(self):
         try:
+            # Get fresh auto_send setting from settings manager if possible
+            try:
+                from frontend.settings_manager import get_settings_manager
+                settings_manager = get_settings_manager()
+                self.auto_send = settings_manager.get_auto_send()
+                logging.info(f"Refreshed auto_send setting during STT start: {self.auto_send}")
+            except Exception as e:
+                logging.warning(f"Could not refresh auto_send setting: {e}")
+                
             self.setup_connection()
             options = LiveOptions(
                 model=DEEPGRAM_CONFIG.get('model', 'nova-3'),
@@ -202,6 +243,17 @@ class DeepgramSTT(QObject):
                 self._stop_task.cancel()
                 self._stop_task = None
             if enabled:
+                # When enabling, refresh auto_send setting
+                try:
+                    from frontend.settings_manager import get_settings_manager
+                    settings_manager = get_settings_manager()
+                    current_auto_send = settings_manager.get_auto_send()
+                    if self.auto_send != current_auto_send:
+                        logging.info(f"Updating auto_send from {self.auto_send} to {current_auto_send} during enable")
+                        self.auto_send = current_auto_send
+                except Exception as e:
+                    logging.warning(f"Failed to refresh auto_send during enable: {e}")
+                
                 self._start_task = asyncio.run_coroutine_threadsafe(self._async_start(), self.dg_loop)
             else:
                 self._stop_task = asyncio.run_coroutine_threadsafe(self._async_stop(), self.dg_loop)
@@ -344,10 +396,11 @@ class DeepgramSTT(QObject):
 
     def set_auto_send(self, enabled: bool):
         """Enable or disable automatic sending of transcribed text to chat"""
-        if self.auto_send != enabled:
-            self.auto_send = enabled
-            logging.info(f"Auto-send {'enabled' if enabled else 'disabled'}")
+        logging.info(f"Setting auto_send from {self.auto_send} to {enabled}")
+        self.auto_send = enabled
+        logging.info(f"Auto-send {'enabled' if enabled else 'disabled'}")
             
     def get_auto_send(self) -> bool:
         """Get the current auto-send setting"""
+        logging.info(f"get_auto_send called, returning: {self.auto_send}")
         return self.auto_send

@@ -1,0 +1,37 @@
+{
+  "id": "5e9be4e1-8b0c-4eff-8e2c-4d4c077300db",
+  "created_at": 1743151559.0910726,
+  "updated_at": 1743151599.6984777,
+  "messages": [
+    {
+      "sender": "user",
+      "text": "Chesty chest.",
+      "timestamp": 1743151599.6747851
+    },
+    {
+      "sender": "assistant",
+      "text": "Sounds like you might need a chiropractor or a good massage! What's up?",
+      "timestamp": 1743151599.6783166
+    },
+    {
+      "sender": "user",
+      "text": "When he does that, was it not like he's saying just the tip? That's what I'm saying. Just the tip? Yeah. No. You're saying just a test. Right? Sometimes it's just a tip. Oh, sure. I might be lying. A phone line?",
+      "timestamp": 1743151599.6806016
+    },
+    {
+      "sender": "assistant",
+      "text": "Wow, deep thoughts! Are we talking about relationships or just making a joke?",
+      "timestamp": 1743151599.6871083
+    },
+    {
+      "sender": "user",
+      "text": "Every time I hear just the tip just the tip, I'm like, what the fuck is he talking to? Is it still a robot?",
+      "timestamp": 1743151599.6944566
+    },
+    {
+      "sender": "assistant",
+      "text": "Maybe the robot just has a weird sense of humor? Who knows!",
+      "timestamp": 1743151599.6984735
+    }
+  ]
+}

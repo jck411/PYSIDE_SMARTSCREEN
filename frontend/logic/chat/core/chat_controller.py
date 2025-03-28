@@ -290,8 +290,29 @@ class ChatController(QObject):
     def setAutoSend(self, enabled):
         """Enable or disable automatic sending of transcribed text to chat"""
         logger.info(f"[ChatController] Setting auto-send to {enabled}")
+        
+        # Save current state for comparison
+        current_before = self.speech_manager.is_auto_send_enabled()
+        
+        # Apply the setting to speech manager
         self.speech_manager.set_auto_send(enabled)
         
+        # Double-check the setting was applied
+        current_after = self.speech_manager.is_auto_send_enabled()
+        logger.info(f"[ChatController] Auto-send setting before change: {current_before}, after: {current_after}")
+        
+        if current_after != enabled:
+            logger.warning(f"[ChatController] Auto-send setting failed to apply! Expected: {enabled}, Actual: {current_after}")
+            # Try one more direct approach as a last resort
+            try:
+                from frontend.settings_manager import get_settings_manager
+                settings_manager = get_settings_manager()
+                settings_manager.set_auto_send(enabled)
+                self.speech_manager.frontend_stt.auto_send = enabled
+                logger.info(f"[ChatController] Forced auto-send setting directly to: {enabled}")
+            except Exception as e:
+                logger.error(f"[ChatController] Error forcing auto-send setting: {e}")
+
     @Slot()
     def toggleAutoSend(self):
         """Toggle auto-send functionality"""
@@ -301,7 +322,9 @@ class ChatController(QObject):
         
     def isAutoSendEnabled(self):
         """Get the current auto-send setting"""
-        return self.speech_manager.is_auto_send_enabled()
+        result = self.speech_manager.is_auto_send_enabled()
+        logger.info(f"[ChatController] isAutoSendEnabled called, returning: {result}")
+        return result
         
     def getChatMessagesForQml(self):
         """Get chat messages formatted for QML"""
@@ -371,6 +394,15 @@ class ChatController(QObject):
     def _handle_auto_submit(self, text):
         """Handle automatic submission of text from STT to chat"""
         if text.strip():
-            logger.info(f"[ChatController] Auto-submitting text to chat: {text}")
-            self.sttAutoSubmitText.emit(text)  # Forward to QML
-            self.sendMessage(text)  # Send to backend immediately
+            # Double-check if auto-send is enabled
+            is_auto_send = self.speech_manager.is_auto_send_enabled()
+            logger.info(f"[ChatController] Auto-submit triggered, auto-send is: {is_auto_send}")
+            
+            # Submit only if auto-send is enabled
+            if is_auto_send:
+                logger.info(f"[ChatController] Auto-submitting text to chat: {text}")
+                self.sttAutoSubmitText.emit(text)  # Forward to QML
+                self.sendMessage(text)  # Send to backend immediately
+                logger.info(f"[ChatController] Auto-submit complete for: {text}")
+            else:
+                logger.warning(f"[ChatController] Auto-submit was triggered but auto-send is disabled ({is_auto_send}). Not submitting: {text}")

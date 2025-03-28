@@ -1,0 +1,17 @@
+{
+  "id": "b0c65fa2-fd34-4577-bf88-2f30c5aa3e82",
+  "created_at": 1743144580.2649672,
+  "updated_at": 1743144594.7389696,
+  "messages": [
+    {
+      "sender": "user",
+      "text": "this is a test",
+      "timestamp": 1743144594.7299695
+    },
+    {
+      "sender": "assistant",
+      "text": "Wow, groundbreaking! What\u2019s next? \ud83d\ude04",
+      "timestamp": 1743144594.738968
+    }
+  ]
+}
